@@ -3,8 +3,15 @@ Bundle-ManifestVersion: 2
 Bundle-Name: Aspect.Java Plug-in
 Bundle-SymbolicName: edu.spsu.aspectjava; singleton:=true
 Bundle-Version: 1.0.0
-Bundle-Activator: edu.spsu.aspectjava.Activator
+Bundle-Activator: edu.spsu.aspectjava.eclipse.Activator
 Require-Bundle: org.eclipse.ui,
- org.eclipse.core.runtime
+ org.eclipse.core.runtime,
+ org.eclipse.core.resources;bundle-version="3.4.0"
 Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-1.6
+Export-Package: edu.spsu.aspectjava.eclipse,
+ edu.spsu.aspectjava.eclipse.dialogs,
+ edu.spsu.aspectjava.eclipse.views,
+ edu.spsu.aspectjava.weaver.models.example
+Bundle-ClassPath: weaver.jar,
+ .

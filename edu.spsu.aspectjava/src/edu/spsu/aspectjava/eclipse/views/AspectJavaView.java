@@ -1,29 +1,17 @@
-package edu.spsu.aspectjava.views;
+package edu.spsu.aspectjava.eclipse.views;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Enumeration;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.FileDialog;
+import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.ui.dialogs.ContainerCheckedTreeViewer;
 import org.eclipse.ui.part.*;
-import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.viewers.*;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
@@ -31,53 +19,40 @@ import org.eclipse.swt.graphics.Image;
 import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
+import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.jface.action.*;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.ui.*;
 import org.eclipse.swt.SWT;
-import org.eclipse.core.runtime.FileLocator;
-import org.eclipse.core.runtime.IAdaptable;
-import org.eclipse.core.runtime.Path;
-import org.eclipse.core.runtime.Platform;
+import org.eclipse.core.resources.IProject;
+import org.eclipse.core.resources.IResourceChangeEvent;
+import org.eclipse.core.resources.IResourceChangeListener;
+import org.eclipse.core.resources.ResourcesPlugin;
 
-import edu.spsu.aspectjava.AspectAction;
-import edu.spsu.aspectjava.models.Aspect;
-import edu.spsu.aspectjava.models.AspectJar;
-import edu.spsu.aspectjava.models.AspectModel;
-import edu.spsu.aspectjava.models.AspectModelListener;
-import edu.spsu.aspectjava.models.AspectWeavingRule;
-import edu.spsu.aspectjava.models.NoAspectsInJarException;
+import edu.spsu.aspectjava.eclipse.Activator;
+import edu.spsu.aspectjava.eclipse.dialogs.ChooseProjectDialog;
+import edu.spsu.aspectjava.weaver.models.example.Aspect;
+import edu.spsu.aspectjava.weaver.models.example.AspectJar;
+import edu.spsu.aspectjava.weaver.models.example.AspectModel;
+import edu.spsu.aspectjava.weaver.models.example.AspectModelListener;
+import edu.spsu.aspectjava.weaver.models.example.AspectWeavingRule;
+import edu.spsu.aspectjava.weaver.models.example.NoAspectsInJarException;
 
-
-/**
- * This sample class demonstrates how to plug-in a new
- * workbench view. The view shows data obtained from the
- * model. The sample creates a dummy model on the fly,
- * but a real implementation would connect to the model
- * available either in this or another plug-in (e.g. the workspace).
- * The view is connected to the model using a content provider.
- * <p>
- * The view uses a label provider to define how model
- * objects should be presented in the view. Each
- * view can present the same model objects using
- * different labels and icons, if needed. Alternatively,
- * a single label provider can be shared between views
- * in order to ensure that objects of the same type are
- * presented in the same way everywhere.
- * <p>
- */
 
 public class AspectJavaView extends ViewPart {
 	private TabFolder tabFolder;
 	
 	private TabItem aspectTab;
+	private Label projectLabel1;
 	private TreeViewer aspViewer;
 	private AspectModel aspectModel;
 	private AspectModelListener aspectModelListener;
 	
-	private TabItem joinpointTab;	
+	private TabItem joinpointTab;
+	private Label projectLabel2;
 	private TreeViewer joinpViewer;
 	
+	private Action setProject;
 	private Action add;
 	private Action remove;
 	private Action reload;
@@ -91,11 +66,17 @@ public class AspectJavaView extends ViewPart {
 	private Image ruleImage;
 	private Image findImage;
 	private Image weaveImage;
+	private Image projectImage;
 	
 	private Button findButton;
 	private Button weaveButton;
 		
 	private FileDialog multiOpenDialog;
+	private ChooseProjectDialog projectDialog;
+	
+	private IProject targetProject = null;
+	public static final String NO_SPECIFIED = "<no target project specified>";
+	private IResourceChangeListener projectsChangeListener;
 		
 //	private Action doubleClickAction;
 
@@ -109,7 +90,7 @@ public class AspectJavaView extends ViewPart {
 	 * (like Task List, for example).
 	 */
 
-	class AspViewContentProvider implements ITreeContentProvider,
+	class AspectsContentProvider implements ITreeContentProvider,
 										   AspectModelListener{
 		private Object[] emptyArray = new Object[0];
 		
@@ -155,12 +136,10 @@ public class AspectJavaView extends ViewPart {
 			return getChildren(parent).length != 0;
 		}
 
-		@Override
 		public void addedAspectJar(AspectJar aspectsJar) {
 			aspViewer.add(aspectModel, aspectsJar);	
 		}
 
-		@Override
 		public void removedAspectJar(AspectJar aspectsJar, int index) {
 			aspViewer.remove(aspectModel, index);
 			if(aspectModel.isEmpty()){
@@ -173,7 +152,6 @@ public class AspectJavaView extends ViewPart {
 			}		
 		}
 
-		@Override
 		public void movedJarDown(AspectJar aspectsJar) {
 			int oldIndex = aspectModel.indexOf(aspectsJar) - 1;
 			aspViewer.remove(aspectModel, oldIndex);
@@ -187,7 +165,6 @@ public class AspectJavaView extends ViewPart {
 			aspViewer.setSelection(selection);
 		}
 
-		@Override
 		public void movedJarUp(AspectJar aspectsJar) {
 			int oldIndex = aspectModel.indexOf(aspectsJar) + 1;
 			aspViewer.remove(aspectModel, oldIndex);
@@ -200,7 +177,7 @@ public class AspectJavaView extends ViewPart {
 
 	}
 	
-	class AspViewLabelProvider extends LabelProvider {
+	class AspectsLabelProvider extends LabelProvider {
 
 		public String getText(Object obj) {
 			if(obj instanceof AspectJar){
@@ -225,7 +202,7 @@ public class AspectJavaView extends ViewPart {
 		}
 	}
 	
-	class JoinpViewContentProvider implements ITreeContentProvider {
+	class JoinpointsContentProvider implements ITreeContentProvider {
 		private Object[] emptyArray = new Object[0];
 
 		public void inputChanged(Viewer v, Object oldInput, Object newInput) {
@@ -266,7 +243,7 @@ public class AspectJavaView extends ViewPart {
 		}
 	}
 	
-	class JoinpViewLabelProvider extends LabelProvider {
+	class JoinpointsLabelProvider extends LabelProvider {
 
 		public String getText(Object obj) {
 			return obj.toString();
@@ -306,6 +283,8 @@ public class AspectJavaView extends ViewPart {
 		
 		initAspectModelListener();
 		
+		initProjectsChangeListener();
+		
 		createJoinpointTab();
 		
 		makeActions();
@@ -317,6 +296,9 @@ public class AspectJavaView extends ViewPart {
 		multiOpenDialog.setFilterPath("C:/");
 		multiOpenDialog.setFileName(null);
 		
+		projectDialog = new ChooseProjectDialog(getViewSite().getShell(), 
+				"Choose Project", "Choose target project for weaving.");
+				
 //		hookContextMenu();
 //		hookDoubleClickAction();
 		
@@ -332,10 +314,10 @@ public class AspectJavaView extends ViewPart {
 	public void dispose(){
 		jarImage.dispose();
 		aspectImage.dispose();
-		ruleImage.dispose();
-		
+		ruleImage.dispose();		
 		findImage.dispose();
-		weaveImage.dispose();
+		weaveImage.dispose();		
+		projectImage.dispose();
 	}
 
 //	private void hookContextMenu() {
@@ -374,6 +356,8 @@ public class AspectJavaView extends ViewPart {
 	
 	private void fillLocalToolBar(IToolBarManager manager) {
 		Separator separator = new Separator();
+		manager.add(setProject);
+		manager.add(separator);
 		manager.add(add);
 		manager.add(remove);
 		manager.add(reload);
@@ -387,6 +371,24 @@ public class AspectJavaView extends ViewPart {
 	}
 
 	private void makeActions() {
+		setProject = new Action(){
+			public void run(){
+				int returnedCode = projectDialog.open();
+				if(returnedCode == ChooseProjectDialog.OK){
+					if(projectDialog.getChosen() != null){
+						targetProject = projectDialog.getChosen();
+						projectLabel1.setText(targetProject.getName());
+						projectLabel2.setText(targetProject.getName());
+						updateFindButton();
+					}
+				}
+			}
+		};
+		setProject.setToolTipText("Choose target project for weaving");
+		setProject.setEnabled(true);
+		setProject.setImageDescriptor(Activator.
+				getImageDescriptor(Activator.IMG_SET_PROJECT));
+		
 		add = new Action() {
 			private String[] jar = new String[]{"*.jar"};
 			
@@ -399,7 +401,6 @@ public class AspectJavaView extends ViewPart {
 					for (int i = 0; i < fileNames.length; i++) {
 						try {
 							str = path + '\\' + fileNames[i];
-							System.out.println(str);
 							boolean added =  aspectModel.addAspectJar(new JarFile(str));
 							if(!added){
 								MessageDialog.openError(getViewSite().getShell(),
@@ -421,12 +422,9 @@ public class AspectJavaView extends ViewPart {
 				}
 			}
 		};
-		// add.setText("Action 1");
 		add.setToolTipText("Add existing aspect JARs");
 		add.setEnabled(true);
-		URL url = FileLocator.find(Platform.getBundle(getViewSite().getPluginId()),
-				new Path("icons/add.gif"), null);
-		add.setImageDescriptor(ImageDescriptor.createFromURL(url));
+		add.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_ADD));
 
 		remove = new Action() {
 			public void run() {
@@ -443,9 +441,7 @@ public class AspectJavaView extends ViewPart {
 		// remove.setText("Action 2");
 		remove.setToolTipText("Remove selected JAR");
 		remove.setEnabled(false);
-		url = FileLocator.find(Platform.getBundle(getViewSite().getPluginId()),
-				new Path("icons/delete.gif"), null);
-		remove.setImageDescriptor(ImageDescriptor.createFromURL(url));
+		remove.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_DELETE));
 
 		reload = new Action() {
 			public void run() {
@@ -454,9 +450,7 @@ public class AspectJavaView extends ViewPart {
 		};
 		reload.setToolTipText("Reload all JARs");
 		reload.setEnabled(true);
-		url = FileLocator.find(Platform.getBundle(getViewSite().getPluginId()),
-				new Path("icons/refresh.gif"), null);
-		reload.setImageDescriptor(ImageDescriptor.createFromURL(url));
+		reload.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_REFRESH));
 
 		down = new Action() {
 			public void run() {
@@ -475,9 +469,7 @@ public class AspectJavaView extends ViewPart {
 		};
 		down.setToolTipText("Move aspect JAR down the queue");
 		down.setEnabled(false);
-		url = FileLocator.find(Platform.getBundle(getViewSite().getPluginId()),
-				new Path("icons/down.gif"), null);
-		down.setImageDescriptor(ImageDescriptor.createFromURL(url));
+		down.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_ARROW_DOWN));
 
 		up = new Action() {
 			public void run() {
@@ -496,9 +488,7 @@ public class AspectJavaView extends ViewPart {
 		};
 		up.setToolTipText("Move aspect JAR up the queue");
 		up.setEnabled(false);
-		url = FileLocator.find(Platform.getBundle(getViewSite().getPluginId()),
-				new Path("icons/up.gif"), null);
-		up.setImageDescriptor(ImageDescriptor.createFromURL(url));
+		up.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_ARROW_UP));
 
 		options = new Action() {
 			public void run() {
@@ -507,9 +497,7 @@ public class AspectJavaView extends ViewPart {
 		};
 		options.setToolTipText("Options...");
 		options.setEnabled(true);
-		url = FileLocator.find(Platform.getBundle(getViewSite().getPluginId()),
-				new Path("icons/options.gif"), null);
-		options.setImageDescriptor(ImageDescriptor.createFromURL(url));
+		options.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_OPTIONS));
 
 		reset = new Action() {
 			public void run() {
@@ -519,9 +507,7 @@ public class AspectJavaView extends ViewPart {
 		reset.setToolTipText("Reset Aspect.Java Framework and unlock"
 				+ " all used sources");
 		reset.setEnabled(false);
-		url = FileLocator.find(Platform.getBundle(getViewSite().getPluginId()),
-				new Path("icons/reset.gif"), null);
-		reset.setImageDescriptor(ImageDescriptor.createFromURL(url));
+		reset.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_RESET));
 
 		// doubleClickAction = new Action() {
 		// public void run() {
@@ -533,25 +519,12 @@ public class AspectJavaView extends ViewPart {
 	}
 
 	private void loadImages(){
-		URL url = FileLocator.find(Platform.getBundle(getViewSite().getPluginId()),
-				new Path("icons/jar.gif"), null);
-		jarImage = ImageDescriptor.createFromURL(url).createImage();
-		
-		url = FileLocator.find(Platform.getBundle(getViewSite().getPluginId()),
-				new Path("icons/aspect.gif"), null);
-		aspectImage = ImageDescriptor.createFromURL(url).createImage();
-		
-		url = FileLocator.find(Platform.getBundle(getViewSite().getPluginId()),
-				new Path("icons/rule.gif"), null);
-		ruleImage = ImageDescriptor.createFromURL(url).createImage();
-		
-		url = FileLocator.find(Platform.getBundle(getViewSite().getPluginId()),
-				new Path("icons/find.gif"), null);
-		findImage = ImageDescriptor.createFromURL(url).createImage();
-		
-		url = FileLocator.find(Platform.getBundle(getViewSite().getPluginId()),
-				new Path("icons/weave.gif"), null);
-		weaveImage = ImageDescriptor.createFromURL(url).createImage();
+		jarImage = Activator.getImageDescriptor(Activator.IMG_JAR).createImage();
+		aspectImage = Activator.getImageDescriptor(Activator.IMG_CLASS).createImage();
+		ruleImage = Activator.getImageDescriptor(Activator.IMG_METHOD).createImage();
+		findImage = Activator.getImageDescriptor(Activator.IMG_FIND).createImage();
+		weaveImage = Activator.getImageDescriptor(Activator.IMG_WEAVE).createImage();
+		projectImage = Activator.getImageDescriptor(Activator.IMG_JAVA_PROJECT).createImage();
 	}
 	
 	private void createAspectTab(){
@@ -564,30 +537,49 @@ public class AspectJavaView extends ViewPart {
 		gridLayout.numColumns = 1;
 		gridLayout.verticalSpacing = 5;
 		gridLayout.marginWidth = 5;
+//		gridLayout.makeColumnsEqualWidth = true;
 		aspTabComp.setLayout(gridLayout);
+		
+		Composite projectComp = new Composite(aspTabComp, SWT.NONE);
+		RowLayout rowLayout = new RowLayout();
+		rowLayout.spacing = 7;
+		rowLayout.type = SWT.HORIZONTAL;
+		rowLayout.wrap = false;
+		rowLayout.center = true;
+		projectComp.setLayout(rowLayout);
+		Label imageLabel = new Label(projectComp, SWT.NONE);
+		imageLabel.setImage(projectImage);
+		projectLabel1 = new Label(projectComp, SWT.NONE);
+		projectLabel1.setText(NO_SPECIFIED);
+		projectLabel1.setToolTipText("Target project");
+		GridData gridData2 = new GridData(SWT.FILL, SWT.FILL, false, false);
+		gridData2.verticalIndent = 4;
+		projectComp.setLayoutData(gridData2);
 		
 		Composite aspectsViewerComp = new Composite(aspTabComp, SWT.BORDER);
 		aspectsViewerComp.setLayout(new FillLayout());
 		aspViewer = new TreeViewer(aspectsViewerComp,
 				SWT.SINGLE | SWT.H_SCROLL | SWT.V_SCROLL);
-		aspViewer.setContentProvider(new AspViewContentProvider());
-		aspViewer.setLabelProvider(new AspViewLabelProvider());
+		aspViewer.setContentProvider(new AspectsContentProvider());
+		aspViewer.setLabelProvider(new AspectsLabelProvider());
 		aspViewer.setInput(aspectModel = new AspectModel());
 		aspViewer.addSelectionChangedListener(new ISelectionChangedListener(){
-			@Override
 			public void selectionChanged(SelectionChangedEvent event) {
 				updateToolBar();
 			}
 		});
 		GridData gridData1 = new GridData(SWT.FILL, SWT.FILL, true, true);
+		gridData1.verticalIndent = 4;
+		gridData1.verticalSpan = gridLayout.numColumns;
 		aspectsViewerComp.setLayoutData(gridData1);
 		
 		findButton = new Button(aspTabComp, SWT.PUSH);
 		findButton.setText("Find Joinpoints");
 		findButton.setImage(findImage);
-		GridData gridData2 = new GridData(SWT.CENTER, SWT.CENTER, false, false);
-		findButton.setLayoutData(gridData2);
 		findButton.setEnabled(false);
+		GridData gridData3 = new GridData(SWT.CENTER, SWT.CENTER, false, false);
+		gridData3.verticalSpan = gridLayout.numColumns;
+		findButton.setLayoutData(gridData3);
 		
 		aspectTab.setControl(aspTabComp);
 	}
@@ -604,22 +596,41 @@ public class AspectJavaView extends ViewPart {
 		gridLayout.marginWidth = 5;
 		joinTabComp.setLayout(gridLayout);	
 		
+		Composite projectComp = new Composite(joinTabComp, SWT.NONE);
+		RowLayout rowLayout = new RowLayout();
+		rowLayout.spacing = 7;
+		rowLayout.type = SWT.HORIZONTAL;
+		rowLayout.wrap = false;
+		rowLayout.center = true;
+		projectComp.setLayout(rowLayout);
+		Label imageLabel = new Label(projectComp, SWT.NONE);
+		imageLabel.setImage(projectImage);
+		projectLabel2 = new Label(projectComp, SWT.NONE);
+		projectLabel2.setText(NO_SPECIFIED);
+		projectLabel2.setToolTipText("Target project");
+		GridData gridData2 = new GridData(SWT.FILL, SWT.FILL, false, false);
+		gridData2.verticalIndent = 4;
+		projectComp.setLayoutData(gridData2);
+		
 		Composite joinpViewerComp = new Composite(joinTabComp, SWT.BORDER);
 		joinpViewerComp.setLayout(new FillLayout());
 		joinpViewer = new ContainerCheckedTreeViewer(joinpViewerComp,
 				SWT.SINGLE | SWT.H_SCROLL | SWT.V_SCROLL);
-		joinpViewer.setContentProvider(new JoinpViewContentProvider());
-		joinpViewer.setLabelProvider(new JoinpViewLabelProvider());
+		joinpViewer.setContentProvider(new JoinpointsContentProvider());
+		joinpViewer.setLabelProvider(new JoinpointsLabelProvider());
 		joinpViewer.setInput(getViewSite());		
 		GridData gridData1 = new GridData(SWT.FILL, SWT.FILL, true, true);
+		gridData1.verticalIndent = 4;
+		gridData1.verticalSpan = gridLayout.numColumns;
 		joinpViewerComp.setLayoutData(gridData1);
 		
 		weaveButton = new Button(joinTabComp, SWT.PUSH);
 		weaveButton.setText("Weave Aspects");
 		weaveButton.setImage(weaveImage);
 		weaveButton.setEnabled(false);
-		GridData gridData2 = new GridData(SWT.CENTER, SWT.CENTER, false, false);
-		weaveButton.setLayoutData(gridData2);
+		GridData gridData3 = new GridData(SWT.CENTER, SWT.CENTER, false, false);
+		gridData3.verticalSpan = gridLayout.numColumns;
+		weaveButton.setLayoutData(gridData3);
 				
 		joinpointTab.setControl(joinTabComp);
 	}
@@ -627,31 +638,57 @@ public class AspectJavaView extends ViewPart {
 	private void initAspectModelListener(){
 		aspectModelListener = new AspectModelListener(){
 
-			@Override
 			public void addedAspectJar(AspectJar jarFile) {
 				updateToolBar();
-				findButton.setEnabled(true);
+				updateFindButton();
 			}
 
-			@Override
 			public void removedAspectJar(AspectJar aspectsJar, int index) {
 				if(aspectModel.isEmpty()){
 					findButton.setEnabled(false);
 				}
 			}
 			
-			@Override
 			public void movedJarDown(AspectJar aspectsJar) {
 				
 			}
 
-			@Override
 			public void movedJarUp(AspectJar aspectsJar) {
 				
 			}
 			
 		};
 		aspectModel.addListener(aspectModelListener);
+	}
+	
+	private void initProjectsChangeListener(){
+		projectsChangeListener = new IResourceChangeListener(){
+
+			public void resourceChanged(IResourceChangeEvent event) {
+				if(event.getType() == IResourceChangeEvent.PRE_CLOSE
+						|| event.getType() == IResourceChangeEvent.PRE_DELETE){
+					if(event.getResource() == targetProject){
+						getViewSite().getShell().getDisplay().syncExec(new Runnable(){
+							public void run() {
+								projectLabel1.setText(NO_SPECIFIED);
+								projectLabel2.setText(NO_SPECIFIED);	
+								findButton.setEnabled(false);
+								targetProject = null;
+							}
+						});
+					}
+//				}else if(event.getType() == IResourceChangeEvent.POST_CHANGE){
+//					IResourceDelta delta = event.getDelta();
+//					if(delta.getResource() == targetProject){
+//						
+//					}
+				}
+				
+			}
+			
+		};
+		ResourcesPlugin.getWorkspace().
+			addResourceChangeListener(projectsChangeListener);
 	}
 	
 	//	private void hookDoubleClickAction() {
@@ -706,9 +743,15 @@ public class AspectJavaView extends ViewPart {
 		}
 	}
 	
-	private void showMessage(String message) {
+	private void updateFindButton(){
+		if(targetProject != null && !aspectModel.isEmpty()){
+			findButton.setEnabled(true);
+		}
+	}
+	
+	public static void showMessage(String message) {
 		MessageDialog.openInformation(
-			joinpViewer.getControl().getShell(),
+			PlatformUI.getWorkbench().getActiveWorkbenchWindow().getShell(),
 			"Aspect.Java Framework",
 			message);
 	}

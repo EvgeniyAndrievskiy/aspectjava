@@ -1,12 +1,12 @@
-package edu.spsu.aspectjava.models;
+package edu.spsu.aspectjava.weaver.models.example;
 
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+
 
 public class AspectWeavingRule{
 	private Aspect aspect;
 	private Method action;
-	private Annotation condition;
+	private AspectAction condition;
 	
 	private String toString;
 	private boolean firstToString = true;
@@ -17,7 +17,7 @@ public class AspectWeavingRule{
 		this.condition = null;
 	}
 
-	public AspectWeavingRule(Aspect aspect, Method action, Annotation condition) {
+	public AspectWeavingRule(Aspect aspect, Method action, AspectAction condition) {
 		this.action = action;
 		this.aspect = aspect;
 		this.condition = condition;
@@ -33,7 +33,7 @@ public class AspectWeavingRule{
 		return action;
 	}
 	
-	public Annotation getCondition(){
+	public AspectAction getCondition(){
 		return condition;
 	}
 	
@@ -54,6 +54,7 @@ public class AspectWeavingRule{
 				stringBuffer.append(", " + paramTypes[i].getSimpleName());
 			}
 			stringBuffer.append(") -> ");
+			// TODO: use condition.value() instead of condition
 			stringBuffer.append(condition);
 			
 			toString = stringBuffer.toString();
