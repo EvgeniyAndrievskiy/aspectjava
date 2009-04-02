@@ -1,4 +1,4 @@
-package edu.spsu.aspectjava.models;
+package edu.spsu.aspectjava.weaver.models.example;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
@@ -13,10 +13,8 @@ import java.util.List;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-
 public class AspectModel{
-	private ArrayList<AspectJar> aspectJars;
-	
+	private ArrayList<AspectJar> aspectJars;	
 	private List<AspectModelListener> listeners;
 	
 	public AspectModel(){
@@ -140,8 +138,9 @@ public class AspectModel{
 		AspectJar aspectsJar = new AspectJar(jarFile);
 		URLClassLoader classLoader = null;
 		try {
+			// TODO: add annotations path to classpathes
 			classLoader = new URLClassLoader(new URL[] { new URL(
-					"jar:file:/" + jarFile.getName() + "!/") });
+					"jar:file:/" + jarFile.getName() + "!/")});
 		} catch (MalformedURLException e) {
 		}
 
@@ -185,15 +184,20 @@ public class AspectModel{
 		List<AspectWeavingRule> weavingRules = new LinkedList<AspectWeavingRule>();
 		Method[] methods = class1.getDeclaredMethods();
 		
-		for(Method method:methods){
-			// define AspectAction annotation
-//			Annotation annotation = method.getAnnotation(AspectAction.class);
+//		Class class2 = null;
+//		try {
+//			class2 = class1.getClassLoader().loadClass("edu.spsu.aspectjava.weaver.models.example.AspectAction");
+//		} catch (ClassNotFoundException e) {
+//		}
+		
+		for(Method method:methods){			
+//			Annotation annotation = method.getAnnotation(class2);
 //			if(annotation == null){
 //				continue;
 //			}
 			if(Modifier.isPublic(method.getModifiers()) && 
 					Modifier.isStatic(method.getModifiers())){
-				weavingRules.add(new AspectWeavingRule(aspect, method));
+				weavingRules.add(new AspectWeavingRule(aspect, method, null));
 			}
 		}
 		

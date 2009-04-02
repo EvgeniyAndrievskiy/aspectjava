@@ -1,4 +1,4 @@
-package edu.spsu.aspectjava.models;
+package edu.spsu.aspectjava.weaver.models.example;
 
 import java.util.List;
 import java.util.jar.JarFile;

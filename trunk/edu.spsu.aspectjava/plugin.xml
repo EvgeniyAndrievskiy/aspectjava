@@ -12,7 +12,7 @@
             name="Aspect.Java Framework"
             icon="icons/aspect.java.gif"
             category="edu.spsu.aspectjava"
-            class="edu.spsu.aspectjava.views.AspectJavaView"
+            class="edu.spsu.aspectjava.eclipse.views.AspectJavaView"
             id="edu.spsu.aspectjava.views.AspectView">
       </view>
    </extension>

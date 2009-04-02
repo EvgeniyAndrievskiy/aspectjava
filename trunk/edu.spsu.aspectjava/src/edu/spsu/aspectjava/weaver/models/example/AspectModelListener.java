@@ -1,4 +1,4 @@
-package edu.spsu.aspectjava.models;
+package edu.spsu.aspectjava.weaver.models.example;
 
 public interface AspectModelListener{	
 	public void addedAspectJar(AspectJar aspectJar);
