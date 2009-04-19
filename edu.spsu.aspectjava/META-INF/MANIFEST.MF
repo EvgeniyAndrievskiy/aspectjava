@@ -9,9 +9,6 @@ Require-Bundle: org.eclipse.ui,
  org.eclipse.core.resources;bundle-version="3.4.0"
 Bundle-ActivationPolicy: lazy
 Bundle-RequiredExecutionEnvironment: JavaSE-1.6
-Export-Package: edu.spsu.aspectjava.eclipse,
- edu.spsu.aspectjava.eclipse.dialogs,
- edu.spsu.aspectjava.eclipse.views,
- edu.spsu.aspectjava.weaver.models.example
 Bundle-ClassPath: weaver.jar,
- .
+ .,
+ bin/
