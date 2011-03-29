@@ -12,12 +12,14 @@ import java.lang.reflect.Modifier;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -47,7 +49,6 @@ import org.eclipse.jface.action.*;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.ui.*;
 import org.eclipse.swt.SWT;
-import org.eclipse.core.internal.resources.Workspace;
 import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
@@ -68,6 +69,7 @@ import org.objectweb.asm.tree.MethodNode;
 import edu.spsu.aj.AspectAction;
 import edu.spsu.aj.AspectDescription;
 import edu.spsu.aj.weaver.AbstractConditionClause;
+import edu.spsu.aj.weaver.AbstractConditionClause.Context;
 import edu.spsu.aj.weaver.Aspect;
 import edu.spsu.aj.weaver.AspectRule;
 import edu.spsu.aj.weaver.Joinpoint;
@@ -319,12 +321,17 @@ public class AspectJavaView extends ViewPart {
 
 		public Object[] getElements(Object parent) {
 			List<Joinpoint> joinpoints = (List<Joinpoint>) parent;
-			List<ClassNode> classes = new IdentityLinkedList<ClassNode>();
-			for(Joinpoint joinpoint : joinpoints){
-				ClassNode cn = joinpoint.getClazz();
-				classes.add(cn);
+			Set<String> packages = new HashSet<String>();
+			for(Joinpoint jp : joinpoints){
+				ClassNode cn = jp.getClazz();
+				int l = cn.name.lastIndexOf('/');
+				if(l < 0){
+					packages.add(AspectsPackage.DEFAULT_PACKAGE);
+				}else{
+					packages.add(cn.name.substring(0, l));
+				}
 			}
-			return classes.toArray();
+			return packages.toArray();
 		}
 
 		public Object getParent(Object child) {
@@ -335,7 +342,26 @@ public class AspectJavaView extends ViewPart {
 		}
 
 		public Object[] getChildren(Object parent) {
-			if(parent instanceof ClassNode){
+			if(parent instanceof String){  // case for packages
+				List<ClassNode> classNodes = new IdentityLinkedList<ClassNode>();
+				for(Joinpoint jp : input){
+					String package1 = null;
+					int l = jp.getClazz().name.lastIndexOf('/');
+					if(l < 0){
+						package1 = AspectsPackage.DEFAULT_PACKAGE;
+					}else{
+						package1 = jp.getClazz().name.substring(0, l);
+					}
+					if(parent.hashCode() != package1.hashCode()){
+						continue;
+					}else{
+						if(parent.equals(package1)){
+							classNodes.add(jp.getClazz());
+						}
+					}
+				}
+				return classNodes.toArray();
+			}else if(parent instanceof ClassNode){
 				List<MethodNode> methods = new IdentityLinkedList<MethodNode>();
 				for(Joinpoint joinpoint : input){
 					if(parent == joinpoint.getClazz()){
@@ -374,8 +400,16 @@ public class AspectJavaView extends ViewPart {
 	class JoinpointsLabelProvider extends LabelProvider {
 
 		public String getText(Object obj) {
-			if(obj instanceof ClassNode){
-				return ((ClassNode) obj).name.replace('/', '.');
+			if(obj instanceof String){  // case for packages
+				return ((String) obj).replace('/', '.');
+			}else if(obj instanceof ClassNode){
+				ClassNode cn = (ClassNode) obj;
+				int l = cn.name.lastIndexOf('/');
+				if(l < 0){
+					return cn.name;
+				}else{
+					return cn.name.substring(l + 1);
+				}
 			}else if(obj instanceof MethodNode){
 				return ((MethodNode) obj).name;
 			}else if(obj instanceof AbstractInsnNode){
@@ -438,7 +472,9 @@ public class AspectJavaView extends ViewPart {
 			return null;
 		}
 		public Image getImage(Object obj) {
-			if(obj instanceof ClassNode){
+			if(obj instanceof String){  // case for packages
+				return packageImage;
+			}else if(obj instanceof ClassNode){
 				return classImage;
 			}else if(obj instanceof MethodNode){
 				return methodImage;
@@ -969,24 +1005,45 @@ public class AspectJavaView extends ViewPart {
 			
 			@Override
 			public void widgetSelected(SelectionEvent e) {
+				List<Joinpoint> input = (List<Joinpoint>) joinpViewer.getInput();
+				List<Joinpoint> checkedJoinpoints = new LinkedList<Joinpoint>();
+				for(Joinpoint joinpoint : input){
+					if(joinpViewer.getChecked(joinpoint)){
+						checkedJoinpoints.add(joinpoint);
+					}
+				}
+				if(checkedJoinpoints.isEmpty()){
+					MessageDialog.openWarning(getViewSite().getShell(), "Warning", 
+							"There are no joinpoints selected.");
+					return;
+				}
+				// If there are 2 checked INSTEAD joinpoints with 
+				// the same target instruction, than show warning dialog.
+				List<Joinpoint> checkedInsteadJps = new ArrayList<Joinpoint>();
+				for(Joinpoint jp : checkedJoinpoints){
+					if(jp.getClause().getContext() == Context.INSTEAD){
+						checkedInsteadJps.add(jp);
+					}
+				}
+				for(int i = 0; i < checkedInsteadJps.size(); i++){
+					Joinpoint jp = checkedInsteadJps.get(i);
+					for(int j = i + 1; j < checkedInsteadJps.size(); j++){
+						if(jp.getInstr() == checkedInsteadJps.get(j).getInstr()){
+							MessageDialog.openWarning(getViewSite().getShell(), "Warning", 
+									"There are 2 checked INSTEAD joinpoints with " +
+									"the same target instruction.");
+							joinpViewer.setSelection(new StructuredSelection(jp.getInstr()));
+							return;
+						}
+					}
+				}
 				String targProjPath = targetProject.getLocation().toString();
 				folderChooseDialog.setFilterPath(targProjPath);
 				folderChooseDialog.setMessage("Choose folder for weaved project saving.");
 				String str = folderChooseDialog.open();
 				if(str != null){
-					List<Joinpoint> input = (List<Joinpoint>) joinpViewer.getInput();
-					List<Joinpoint> checkedJoinpoints = new LinkedList<Joinpoint>();
-					for(Joinpoint joinpoint : input){
-						if(joinpViewer.getChecked(joinpoint)){
-							checkedJoinpoints.add(joinpoint);
-						}
-					}
-					if(checkedJoinpoints.isEmpty()){
-						MessageDialog.openWarning(getViewSite().getShell(), "Warning", 
-								"There are no joinpoints selected.");
-						return;
-					}
 					weaver.weaveJoinpoints(checkedJoinpoints);
+					weaveButton.setEnabled(false);
 					for(ClassNode cn : targProjLoaded){
 						ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
 						LocalVariablesAdapter lva = new LocalVariablesAdapter(cw);

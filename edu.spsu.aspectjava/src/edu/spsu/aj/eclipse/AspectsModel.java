@@ -116,7 +116,13 @@ class AspectsModel{
 							String packagePath = '.' + parent.replace(cont1.getPath(), "");
 							// package.class format
 							String aspectName = aspect.getName();
-							String aspectPackage = aspectName.substring(0, aspectName.lastIndexOf('.'));
+							String aspectPackage = null;
+							int l = aspectName.lastIndexOf('.');
+							if(l < 0){
+								aspectPackage = AspectsPackage.DEFAULT_PACKAGE;
+							}else{
+								aspectPackage = aspectName.substring(0, l);
+							}
 							AspectsPackage package1 = cont1.addPackage(aspectPackage, packagePath);
 							package1.addAspect(aspect);
 						}
@@ -251,7 +257,13 @@ class AspectsModel{
 							String packagePath = '.' + parent.replace(container.getPath(), "");
 							// package.class format
 							String aspectName = aspect.getName();
-							String aspectPackage = aspectName.substring(0, aspectName.lastIndexOf('.'));
+							String aspectPackage = null;
+							int l = aspectName.lastIndexOf('.');
+							if(l < 0){
+								aspectPackage = AspectsPackage.DEFAULT_PACKAGE;
+							}else{
+								aspectPackage = aspectName.substring(0, l);
+							}
 							AspectsPackage package1 = container.addPackage(aspectPackage, packagePath);
 							package1.addAspect(aspect);
 						}
@@ -462,10 +474,22 @@ class AspectsModel{
 						if(!rules.isEmpty()){
 							Aspect aspect = new Aspect(name, description, rules);
 							String name = entry.getName();
-							String packagePath = '/' + name.substring(0, name.lastIndexOf('/'));
+							String packagePath = null;
+							int l1 = name.lastIndexOf('/');
+							if(l1 < 0){
+								packagePath = "/";
+							}else{
+								packagePath = '/' + name.substring(0, name.lastIndexOf('/'));
+							}
 							// package.class format
 							String aspectName = aspect.getName();
-							String aspectPackage = aspectName.substring(0, aspectName.lastIndexOf('.'));
+							String aspectPackage = null;
+							int l = aspectName.lastIndexOf('.');
+							if(l < 0){
+								aspectPackage = AspectsPackage.DEFAULT_PACKAGE;
+							}else{
+								aspectPackage = aspectName.substring(0, l);
+							}							
 							AspectsPackage package1 = container.addPackage(aspectPackage, packagePath);
 							package1.addAspect(aspect);
 						}
@@ -838,6 +862,7 @@ class AspectsModel{
 	}
 	static class AspectsPackage{
 		private String name;
+		static final String DEFAULT_PACKAGE = "(default package)";
 		private String path; // relative path to package folder
 		private List<Aspect> aspects;
 		

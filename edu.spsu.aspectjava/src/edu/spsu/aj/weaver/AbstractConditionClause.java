@@ -9,7 +9,7 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 
 public abstract class AbstractConditionClause {
-	static enum Context{
+	public static enum Context{
 		BEFORE, AFTER, INSTEAD
 	}
 	
@@ -104,7 +104,7 @@ public abstract class AbstractConditionClause {
 		return true;
 	}
 	
-	Context getContext(){ 
+	public Context getContext(){ 
 		return context;
 	}
 	

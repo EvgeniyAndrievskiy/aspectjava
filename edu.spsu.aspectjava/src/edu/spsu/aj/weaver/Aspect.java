@@ -9,18 +9,14 @@ public class Aspect {
 	private List<AspectRule> rules;
 	
 	public Aspect(String name, List<AspectRule> rules){
-		if(name.contains("/")){
-			name = name.replace('/', '.');
-		}
+		name = name.replace('/', '.');
 		this.name = name;
 		description = null;
 		this.rules = rules;
 	}
 	
 	public Aspect(String name, String desc, List<AspectRule> rules){
-		if(name.contains("/")){
-			name = name.replace('/', '.');
-		}
+		name = name.replace('/', '.');
 		this.name = name;
 		this.description = desc;
 		this.rules = rules;
