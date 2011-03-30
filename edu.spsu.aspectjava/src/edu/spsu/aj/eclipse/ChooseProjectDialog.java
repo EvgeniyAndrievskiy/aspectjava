@@ -7,6 +7,7 @@ import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
+import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jface.dialogs.Dialog;
 import org.eclipse.jface.viewers.IStructuredContentProvider;
@@ -29,7 +30,7 @@ class ChooseProjectDialog extends Dialog{
 	private String message;
 	private String title;
 	private TableViewer projectsViewer;
-	private IProject chosenProject = null;
+	private IJavaProject chosenProject = null;
 	
 	ChooseProjectDialog(Shell shell, String title, String message){
 		super(shell);
@@ -74,12 +75,13 @@ class ChooseProjectDialog extends Dialog{
 	
 	@Override
 	protected void okPressed() {
-		chosenProject = (IProject) ((IStructuredSelection) projectsViewer.getSelection()).
+		IProject project = (IProject) ((IStructuredSelection) projectsViewer.getSelection()).
 			getFirstElement();
+		chosenProject = JavaCore.create(project);
 		super.okPressed();
 	}
 	
-	IProject getChosen(){
+	IJavaProject getChosen(){
 		return chosenProject;
 	}
 	

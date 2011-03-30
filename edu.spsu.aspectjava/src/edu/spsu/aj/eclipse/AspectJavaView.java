@@ -6,38 +6,44 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Set;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
 
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.DirectoryDialog;
 import org.eclipse.swt.widgets.FileDialog;
 import org.eclipse.swt.widgets.Label;
-import org.eclipse.swt.widgets.MessageBox;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
+import org.eclipse.ui.IActionBars;
+import org.eclipse.ui.PartInitException;
 import org.eclipse.ui.dialogs.ContainerCheckedTreeViewer;
-import org.eclipse.ui.part.*;
+import org.eclipse.ui.part.ViewPart;
+import org.eclipse.ui.texteditor.ITextEditor;
+import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
-import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.core.JavaModelException;
-import org.eclipse.jface.viewers.*;
+import org.eclipse.jdt.ui.JavaUI;
+import org.eclipse.jface.text.BadLocationException;
+import org.eclipse.jface.text.IDocument;
+import org.eclipse.jface.text.TextSelection;
+import org.eclipse.jface.viewers.ColumnLabelProvider;
+import org.eclipse.jface.viewers.ColumnViewerToolTipSupport;
+import org.eclipse.jface.viewers.DoubleClickEvent;
+import org.eclipse.jface.viewers.IDoubleClickListener;
+import org.eclipse.jface.viewers.ISelectionChangedListener;
+import org.eclipse.jface.viewers.IStructuredSelection;
+import org.eclipse.jface.viewers.ITreeContentProvider;
+import org.eclipse.jface.viewers.LabelProvider;
+import org.eclipse.jface.viewers.SelectionChangedEvent;
+import org.eclipse.jface.viewers.StructuredSelection;
+import org.eclipse.jface.viewers.TreePath;
+import org.eclipse.jface.viewers.TreeViewer;
+import org.eclipse.jface.viewers.Viewer;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 import org.eclipse.swt.graphics.Image;
@@ -45,18 +51,16 @@ import org.eclipse.swt.layout.FillLayout;
 import org.eclipse.swt.layout.GridData;
 import org.eclipse.swt.layout.GridLayout;
 import org.eclipse.swt.layout.RowLayout;
-import org.eclipse.jface.action.*;
+import org.eclipse.jface.action.Action;
+import org.eclipse.jface.action.IToolBarManager;
+import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.dialogs.MessageDialog;
-import org.eclipse.ui.*;
 import org.eclipse.swt.SWT;
-import org.eclipse.core.resources.IProject;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.IPath;
-import org.eclipse.core.runtime.IProgressMonitor;
-import org.eclipse.core.runtime.IStatus;
-import org.eclipse.core.runtime.jobs.Job;
+import org.eclipse.core.runtime.Path;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
@@ -66,16 +70,12 @@ import org.objectweb.asm.tree.LineNumberNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import edu.spsu.aj.AspectAction;
-import edu.spsu.aj.AspectDescription;
 import edu.spsu.aj.weaver.AbstractConditionClause;
 import edu.spsu.aj.weaver.AbstractConditionClause.Context;
 import edu.spsu.aj.weaver.Aspect;
 import edu.spsu.aj.weaver.AspectRule;
 import edu.spsu.aj.weaver.Joinpoint;
 import edu.spsu.aj.weaver.LocalVariablesAdapter;
-import edu.spsu.aj.weaver.RuleAction;
-import edu.spsu.aj.weaver.RuleCondition;
 import edu.spsu.aj.weaver.Weaver;
 import edu.spsu.aj.eclipse.AspectsModel.*;
 
@@ -122,7 +122,7 @@ public class AspectJavaView extends ViewPart {
 	private FileDialog jarsChooseDialog;
 	private ChooseProjectDialog projectDialog;
 	
-	private IProject targetProject = null;
+	private IJavaProject targetProject = null;
 	private List<ClassNode> targProjLoaded;
 	public static final String NO_SPECIFIED = "<no target project specified>";
 	private IResourceChangeListener projectsChangeListener;
@@ -620,8 +620,8 @@ public class AspectJavaView extends ViewPart {
 					if(projectDialog.getChosen() != null){
 						if(targetProject != projectDialog.getChosen()){
 							targetProject = projectDialog.getChosen();
-							projectLabel1.setText(targetProject.getName());
-							projectLabel2.setText(targetProject.getName());
+							projectLabel1.setText(targetProject.getProject().getName());
+							projectLabel2.setText(targetProject.getProject().getName());
 							updateFindButton();
 							joinpViewer.setInput(null);
 							weaveButton.setEnabled(false);
@@ -861,6 +861,7 @@ public class AspectJavaView extends ViewPart {
 		ColumnViewerToolTipSupport.enableFor(aspViewer);
 		aspViewer.setInput(aspectModel = new AspectsModel());
 		aspViewer.addSelectionChangedListener(new ISelectionChangedListener(){
+			
 			public void selectionChanged(SelectionChangedEvent event) {
 				updateToolBar();
 			}
@@ -901,13 +902,12 @@ public class AspectJavaView extends ViewPart {
 				for(AspectsContainer container : aspectModel.getAspectsContainers()){
 					aspects.addAll(container.getAllAspects());
 				}
-				IJavaProject javaProject = JavaCore.create(targetProject);
 				IPath outputPath = null;
 				try {
-					outputPath = javaProject.getOutputLocation();
+					outputPath = targetProject.getOutputLocation();
 				} catch (JavaModelException e1) {
 				}
-				IPath projPath = targetProject.getLocation();
+				IPath projPath = targetProject.getProject().getLocation();
 				
 				//Format \project_name\path_to_output_dir
 				String outputStr = outputPath.toString();
@@ -988,7 +988,58 @@ public class AspectJavaView extends ViewPart {
 				SWT.SINGLE | SWT.H_SCROLL | SWT.V_SCROLL);
 		joinpViewer.setContentProvider(new JoinpointsContentProvider());
 		joinpViewer.setLabelProvider(new JoinpointsLabelProvider());
-//		joinpViewer.setInput(getViewSite());		
+		joinpViewer.addDoubleClickListener(new IDoubleClickListener() {
+			
+			@Override
+			public void doubleClick(DoubleClickEvent event) {
+				Object obj = ((IStructuredSelection) event.getSelection()).getFirstElement();
+				if(obj instanceof AbstractInsnNode){
+					AbstractInsnNode line = ((AbstractInsnNode) obj).getPrevious();
+					while(!(line instanceof LineNumberNode)){
+						line = line.getPrevious();
+					}
+					int lineNumber = ((LineNumberNode) line).line;
+					ClassNode cn = null;
+					for(Joinpoint jp : (List<Joinpoint>) joinpViewer.getInput()){
+						if(jp.getInstr() == obj){
+							cn = jp.getClazz();
+							break;
+						}
+					}
+					String sourceFile = cn.sourceFile;
+					String packageStr = null;
+					int l = cn.name.lastIndexOf('/');
+					if(l < 0){
+						packageStr = "";
+					}else{
+						packageStr = cn.name.substring(0, l + 1);
+					}
+					IJavaElement el = null;
+					try {
+						el = targetProject.findElement(new Path(packageStr
+								+ sourceFile));
+					} catch (JavaModelException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					try {
+						ITextEditor editorPart = (ITextEditor) JavaUI.openInEditor(el);
+						IDocument doc = editorPart.getDocumentProvider().getDocument(editorPart.getEditorInput());
+						editorPart.getSelectionProvider().setSelection(new TextSelection(
+								doc.getLineOffset(lineNumber - 1), doc.getLineLength(lineNumber - 1)));					
+					} catch (PartInitException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (JavaModelException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					} catch (BadLocationException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+			}
+		});
 		GridData gridData1 = new GridData(SWT.FILL, SWT.FILL, true, true);
 		gridData1.verticalIndent = 4;
 		gridData1.verticalSpan = gridLayout.numColumns;
@@ -1037,7 +1088,7 @@ public class AspectJavaView extends ViewPart {
 						}
 					}
 				}
-				String targProjPath = targetProject.getLocation().toString();
+				String targProjPath = targetProject.getProject().getLocation().toString();
 				folderChooseDialog.setFilterPath(targProjPath);
 				folderChooseDialog.setMessage("Choose folder for weaved project saving.");
 				String str = folderChooseDialog.open();
@@ -1133,11 +1184,11 @@ public class AspectJavaView extends ViewPart {
 			public void resourceChanged(IResourceChangeEvent event) {
 				if(event.getType() == IResourceChangeEvent.PRE_CLOSE
 						|| event.getType() == IResourceChangeEvent.PRE_DELETE){
-					if(event.getResource() == targetProject){
+					if(event.getResource() == targetProject.getProject()){
 						getViewSite().getShell().getDisplay().syncExec(new Runnable(){
 							public void run() {
 								projectLabel1.setText(NO_SPECIFIED);
-								projectLabel2.setText(NO_SPECIFIED);	
+								projectLabel2.setText(NO_SPECIFIED);
 								findButton.setEnabled(false);
 								targetProject = null;
 								joinpViewer.setInput(null);
