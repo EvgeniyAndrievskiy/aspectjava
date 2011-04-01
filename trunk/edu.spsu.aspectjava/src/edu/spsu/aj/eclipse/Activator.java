@@ -8,25 +8,14 @@ import org.osgi.framework.BundleContext;
  * The activator class controls the plug-in life cycle
  */
 public class Activator extends AbstractUIPlugin {
-	public static final String IMG_ADD_FOLDER = "icons/add_folder.png";
-	public static final String IMG_ADD_JARS = "icons/add_jar.png";
+	public static final String IMG_ADD_DEC = "icons/add_dec.png";
 	public static final String IMG_ASPECT = "icons/aspect.png";
-	public static final String IMG_RULE = "icons/rule.gif";
-	public static final String IMG_PACKAGE = "icons/package.gif";
-	public static final String IMG_CLASS = "icons/class.gif";
-//	public static final String IMG_ASPECT_JAVA_FRAMEWORK = "icons/aspect.png";
-	public static final String IMG_DELETE = "icons/delete.gif";
 	public static final String IMG_ARROW_DOWN = "icons/down.gif";
 	public static final String IMG_ARROW_UP = "icons/up.gif";
 	public static final String IMG_FIND = "icons/find.gif";
-	public static final String IMG_FOLDER = "icons/fldr_obj.gif";
-	public static final String IMG_JAR = "icons/jar.gif";
-	public static final String IMG_JAVA_PROJECT = "icons/javaproject.gif";
 	public static final String IMG_OPTIONS = "icons/options.gif";
 	public static final String IMG_REFRESH = "icons/refresh.gif";
 	public static final String IMG_METHOD = "icons/method.gif";
-	public static final String IMG_SOURCE = "icons/source.gif";
-	public static final String IMG_SET_PROJECT = "icons/javaproject.gif";
 	public static final String IMG_RESET = "icons/reset.gif";
 	public static final String IMG_WEAVE = "icons/weave.gif";
 
