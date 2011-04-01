@@ -20,20 +20,26 @@ import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.TabFolder;
 import org.eclipse.swt.widgets.TabItem;
 import org.eclipse.ui.IActionBars;
+import org.eclipse.ui.ISharedImages;
 import org.eclipse.ui.PartInitException;
+import org.eclipse.ui.PlatformUI;
 import org.eclipse.ui.dialogs.ContainerCheckedTreeViewer;
+import org.eclipse.ui.ide.IDE;
 import org.eclipse.ui.part.ViewPart;
 import org.eclipse.ui.texteditor.ITextEditor;
 import org.eclipse.jdt.core.IJavaElement;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaModelException;
 import org.eclipse.jdt.ui.JavaUI;
+import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.jface.text.BadLocationException;
 import org.eclipse.jface.text.IDocument;
 import org.eclipse.jface.text.TextSelection;
 import org.eclipse.jface.viewers.ColumnLabelProvider;
 import org.eclipse.jface.viewers.ColumnViewerToolTipSupport;
+import org.eclipse.jface.viewers.DecorationOverlayIcon;
 import org.eclipse.jface.viewers.DoubleClickEvent;
+import org.eclipse.jface.viewers.IDecoration;
 import org.eclipse.jface.viewers.IDoubleClickListener;
 import org.eclipse.jface.viewers.ISelectionChangedListener;
 import org.eclipse.jface.viewers.IStructuredSelection;
@@ -548,17 +554,10 @@ public class AspectJavaView extends ViewPart {
 	}
 	
 	public void dispose(){
-		folderImage.dispose();
-		jarImage.dispose();
 		aspectImage.dispose();
-		ruleImage.dispose();
-		packageImage.dispose();
-		classImage.dispose();
 		methodImage.dispose();
-		sourceImage.dispose();
 		findImage.dispose();
 		weaveImage.dispose();		
-		projectImage.dispose();
 	}
 
 //	private void hookContextMenu() {
@@ -632,8 +631,8 @@ public class AspectJavaView extends ViewPart {
 		};
 		setProject.setToolTipText("Choose target project for weaving");
 		setProject.setEnabled(true);
-		setProject.setImageDescriptor(Activator.
-				getImageDescriptor(Activator.IMG_SET_PROJECT));
+		setProject.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
+				getImageDescriptor(IDE.SharedImages.IMG_OBJ_PROJECT));
 		
 		addFolder = new Action() {
 			
@@ -664,7 +663,9 @@ public class AspectJavaView extends ViewPart {
 		};
 		addFolder.setToolTipText("Add aspects folder");
 		addFolder.setEnabled(true);
-		addFolder.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_ADD_FOLDER));
+		ImageDescriptor add = Activator.getImageDescriptor(Activator.IMG_ADD_DEC);
+		DecorationOverlayIcon d = new DecorationOverlayIcon(folderImage, add, IDecoration.BOTTOM_LEFT);
+		addFolder.setImageDescriptor(d);
 		
 		addJars = new Action() {
 	
@@ -696,7 +697,8 @@ public class AspectJavaView extends ViewPart {
 		};
 		addJars.setToolTipText("Add aspects JARs");
 		addJars.setEnabled(true);
-		addJars.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_ADD_JARS));
+		DecorationOverlayIcon d1 = new DecorationOverlayIcon(jarImage, add, IDecoration.BOTTOM_LEFT);
+		addJars.setImageDescriptor(d1);
 
 		remove = new Action() {
 			public void run() {
@@ -712,7 +714,8 @@ public class AspectJavaView extends ViewPart {
 		};
 		remove.setToolTipText("Remove selected folder/JAR");
 		remove.setEnabled(false);
-		remove.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_DELETE));
+		remove.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
+				getImageDescriptor(ISharedImages.IMG_ETOOL_DELETE));
 
 		reload = new Action() {
 			public void run() {
@@ -810,17 +813,17 @@ public class AspectJavaView extends ViewPart {
 	}
 
 	private static void loadImages(){
-		folderImage = Activator.getImageDescriptor(Activator.IMG_FOLDER).createImage();
-		jarImage = Activator.getImageDescriptor(Activator.IMG_JAR).createImage();
+		folderImage = PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_FOLDER);
+		jarImage = JavaUI.getSharedImages().getImage(org.eclipse.jdt.ui.ISharedImages.IMG_OBJS_JAR);
 		aspectImage = Activator.getImageDescriptor(Activator.IMG_ASPECT).createImage();
-		ruleImage = Activator.getImageDescriptor(Activator.IMG_RULE).createImage();
-		packageImage = Activator.getImageDescriptor(Activator.IMG_PACKAGE).createImage();
-		classImage = Activator.getImageDescriptor(Activator.IMG_CLASS).createImage();
+		ruleImage = PlatformUI.getWorkbench().getSharedImages().getImage(ISharedImages.IMG_OBJ_ELEMENT);
+		packageImage = JavaUI.getSharedImages().getImage(org.eclipse.jdt.ui.ISharedImages.IMG_OBJS_PACKAGE);
+		classImage = JavaUI.getSharedImages().getImage(org.eclipse.jdt.ui.ISharedImages.IMG_OBJS_CLASS);
 		methodImage = Activator.getImageDescriptor(Activator.IMG_METHOD).createImage();
-		sourceImage = Activator.getImageDescriptor(Activator.IMG_SOURCE).createImage();
+		sourceImage = JavaUI.getSharedImages().getImage(org.eclipse.jdt.ui.ISharedImages.IMG_OBJS_CUNIT);
 		findImage = Activator.getImageDescriptor(Activator.IMG_FIND).createImage();
 		weaveImage = Activator.getImageDescriptor(Activator.IMG_WEAVE).createImage();
-		projectImage = Activator.getImageDescriptor(Activator.IMG_JAVA_PROJECT).createImage();
+		projectImage = PlatformUI.getWorkbench().getSharedImages().getImage(IDE.SharedImages.IMG_OBJ_PROJECT);
 	}
 	
 	private void createAspectTab(){
@@ -1182,6 +1185,9 @@ public class AspectJavaView extends ViewPart {
 		projectsChangeListener = new IResourceChangeListener(){
 
 			public void resourceChanged(IResourceChangeEvent event) {
+				if(targetProject == null){
+					return;
+				}
 				if(event.getType() == IResourceChangeEvent.PRE_CLOSE
 						|| event.getType() == IResourceChangeEvent.PRE_DELETE){
 					if(event.getResource() == targetProject.getProject()){
