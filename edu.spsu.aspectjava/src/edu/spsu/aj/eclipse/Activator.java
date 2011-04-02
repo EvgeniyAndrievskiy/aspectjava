@@ -13,10 +13,9 @@ public class Activator extends AbstractUIPlugin {
 	public static final String IMG_ARROW_DOWN = "icons/down.gif";
 	public static final String IMG_ARROW_UP = "icons/up.gif";
 	public static final String IMG_FIND = "icons/find.gif";
-	public static final String IMG_OPTIONS = "icons/options.gif";
+//	public static final String IMG_OPTIONS = "icons/options.gif";
 	public static final String IMG_REFRESH = "icons/refresh.gif";
 	public static final String IMG_METHOD = "icons/method.gif";
-	public static final String IMG_RESET = "icons/reset.gif";
 	public static final String IMG_WEAVE = "icons/weave.gif";
 
 	// The plug-in ID

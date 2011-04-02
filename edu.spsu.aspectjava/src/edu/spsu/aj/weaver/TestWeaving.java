@@ -42,7 +42,7 @@ public class TestWeaving {
 		Weaver weaver = new Weaver();
 		
 		List<Joinpoint> jps = weaver.findJoinpoints(tList, aList);
-		weaver.weaveJoinpoints(jps);
+//		weaver.weaveJoinpoints(jps);
 		
 		ClassWriter cw = new ClassWriter(cr, ClassWriter.COMPUTE_MAXS);
 		LocalVariablesAdapter lva = new LocalVariablesAdapter(cw);
