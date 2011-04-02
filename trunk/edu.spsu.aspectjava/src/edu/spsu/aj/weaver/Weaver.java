@@ -1,7 +1,9 @@
 package edu.spsu.aj.weaver;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.objectweb.asm.Opcodes;
@@ -377,10 +379,24 @@ public class Weaver{
 		}
 	}
 	
-	public void weaveJoinpoints(List<Joinpoint> jPoints) {
-		for(Joinpoint jPoint : jPoints){
-			AbstractInsnNode instr = jPoint.getInstr();
+	public void weaveJoinpoints(List<ClassNode> targetApp, List<Joinpoint> jPoints) {
+		HashMap<String, ClassNode> classNodes = new HashMap<String, ClassNode>();
+		for(ClassNode classNode : targetApp){
+			classNodes.put(classNode.name, classNode);
+		}
+		List<Joinpoint> workingJPs = new LinkedList<Joinpoint>();
+		for(Joinpoint jp : jPoints){
+			ClassNode cn = classNodes.get(jp.getClazz().name);
+			int  methodI = jp.getClazz().methods.indexOf(jp.getMethod());
+			MethodNode method = (MethodNode) cn.methods.get(methodI);
+			int instrI = jp.getMethod().instructions.indexOf(jp.getInstr());
+			AbstractInsnNode instr = method.instructions.get(instrI);
+			Joinpoint wjp = new Joinpoint(instr, method, cn, jp.getAspect(), jp.getAspectRule(), jp.getClause());
+			workingJPs.add(wjp);
+		}
+		for(Joinpoint jPoint : workingJPs){
 			MethodNode method = jPoint.getMethod();
+			AbstractInsnNode instr = jPoint.getInstr();
 			AspectRule rule = jPoint.getAspectRule();
 			
 			String owner = jPoint.getAspect().getName().replace('.', '/');
