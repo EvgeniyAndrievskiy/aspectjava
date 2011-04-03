@@ -13,15 +13,14 @@ public abstract class AbstractConditionClause {
 		BEFORE, AFTER, INSTEAD
 	}
 	
-	protected String condClause;
-	protected String pattern;
+	protected String condClauseStr;
+	protected String patternStr;
 	protected String argsInfoStr = null;
 	private List<Restriction> restrictions = null;
 	private Context context;
-	protected ArgsInfo argsInfo;
 	
 	AbstractConditionClause(String condClause) throws BadCondClauseFormat {
-		this.condClause = condClause.trim();
+		this.condClauseStr = condClause.trim();
 		
 		/** Context **/
 		int ws = condClause.indexOf(' ');
@@ -54,9 +53,9 @@ public abstract class AbstractConditionClause {
 
 		ws = string.indexOf("&&");
 		if(ws < 0){
-			pattern = string;
+			patternStr = string;
 		}else{
-			pattern = string.substring(0, ws).trim();
+			patternStr = string.substring(0, ws).trim();
 		}
 		
 		/** ArgsInfo & Restrictions **/
@@ -88,9 +87,7 @@ public abstract class AbstractConditionClause {
 	
 	abstract boolean accepts(AbstractInsnNode instr, MethodNode method, ClassNode class1);
 	
-	ArgsInfo getArgsInfo(){
-		return argsInfo;
-	}
+	public abstract ArgsInfo getArgsInfo();
 	
 	protected boolean checkRestrictions(AbstractInsnNode instr, MethodNode method, ClassNode class1){
 		if(restrictions == null){
@@ -110,7 +107,7 @@ public abstract class AbstractConditionClause {
 	
 	@Override
 	public String toString() {
-		return condClause;
+		return condClauseStr;
 	}
 	
 //	protected static boolean mathes(EntityWildCard wc, MethodNode meth, ClassNode cl){
@@ -146,7 +143,7 @@ public abstract class AbstractConditionClause {
 			restriction = restr.trim();
 			int br = restriction.indexOf('(');
 			if(br < 0){
-				throw new BadCondClauseFormat(condClause, 
+				throw new BadCondClauseFormat(condClauseStr, 
 						"Bad format of restriction: " + restriction);
 			}
 			String typeString = restriction.substring(0, br).
@@ -160,7 +157,7 @@ public abstract class AbstractConditionClause {
 			}else if(typeString.equals("%!withincode")){
 				type = NOT_WITHINCODE;
 			}else{
-				throw new BadCondClauseFormat(condClause, 
+				throw new BadCondClauseFormat(condClauseStr, 
 						"Bad format of restriction: " + restriction);
 			}
 			// remove last symbol (')') and then trim
@@ -175,7 +172,7 @@ public abstract class AbstractConditionClause {
 			try {
 				entityWC = new EntityWildCard(entityWCString, entityWCType);
 			} catch (PatternSyntaxException e) {
-				throw new BadCondClauseFormat(condClause, "Bad format of restriction: "
+				throw new BadCondClauseFormat(condClauseStr, "Bad format of restriction: "
 						+ restriction);
 			}
 		}

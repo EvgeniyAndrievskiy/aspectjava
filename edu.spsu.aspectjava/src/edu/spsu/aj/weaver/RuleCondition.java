@@ -9,11 +9,11 @@ import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
 
 public class RuleCondition {
-	private String condition;	
+	private String conditionStr;	
 	private List<AbstractConditionClause> condClauses;
 	
 	public RuleCondition(String condition) throws BadCondClauseFormat{
-		this.condition = condition.trim();
+		this.conditionStr = condition.trim();
 		condClauses = new LinkedList<AbstractConditionClause>();
 		
 		parseConditionString(condition);
@@ -44,7 +44,7 @@ public class RuleCondition {
 
 	@Override
 	public String toString() {
-		return condition;
+		return conditionStr;
 	}
 
 }

@@ -11,15 +11,16 @@ import org.objectweb.asm.tree.MethodNode;
 
 class CallConditionClause extends AbstractConditionClause {
 	private MethodPattern methPattern;
+	private ArgsInfo argsInfo;
 	
 	
 	CallConditionClause(String condClause)  throws BadCondClauseFormat{
 		super(condClause);
-		methPattern = new MethodPattern(pattern);	
-		if(super.argsInfoStr == null){
-			super.argsInfo = null;
+		methPattern = new MethodPattern(patternStr);	
+		if(argsInfoStr == null){
+			argsInfo = null;
 		}else{
-			super.argsInfo = new MethodArgsInfo(argsInfoStr);			
+			argsInfo = new MethodArgsInfo(argsInfoStr);			
 		}
 	}
 
@@ -33,17 +34,19 @@ class CallConditionClause extends AbstractConditionClause {
 		}
 		return methPattern.accepts(instr, method, class1);
 	}
+
 	
-//	@Override
-//	Object getArgsInfo() {
-//		return argsInfo;
-//	}
-	
+	@Override
+	public ArgsInfo getArgsInfo() {
+		return argsInfo;
+	}
+
 	private class MethodArgsInfo extends ArgsInfo{
 		private int[] argsInfo;
 		private int argsCount;
 		
 		MethodArgsInfo(String argsInfoStr) {
+			super(argsInfoStr);
 			
 			// Special case %args(..), that means all arguments from target method are passed into action.
 			// This case is equivalent to argsInfo.getArgsCount() == -1 and/or argsInfo.getInfo() == null.
@@ -101,7 +104,7 @@ class CallConditionClause extends AbstractConditionClause {
 				hasArgTypes = true;
 				// cut surrounding brackets
 				if(pattern.charAt(pattern.length() - 1) != ')'){
-					throw new BadCondClauseFormat(condClause, "Bad format of method pattern: "
+					throw new BadCondClauseFormat(condClauseStr, "Bad format of method pattern: "
 							+ pattern);
 				}else{
 					argTypes = new MethodArgTypes(pattern.substring(br + 1,
@@ -141,7 +144,7 @@ class CallConditionClause extends AbstractConditionClause {
 						initAccess(tokens[0]);
 						hasStatic = true;
 						if(!tokens[1].equals("static")){
-							throw new BadCondClauseFormat(condClause, 
+							throw new BadCondClauseFormat(condClauseStr, 
 									"Unexpected token instead of \"static\": "
 									 + tokens[1]);
 						}
@@ -213,7 +216,7 @@ class CallConditionClause extends AbstractConditionClause {
 						hasRetType = false;
 					}
 				} catch (PatternSyntaxException	 e) {
-					throw new BadCondClauseFormat(condClause, "Bad format of method name filter: "
+					throw new BadCondClauseFormat(condClauseStr, "Bad format of method name filter: "
 							+ nf);
 				}
 			}
@@ -229,7 +232,7 @@ class CallConditionClause extends AbstractConditionClause {
 				}else if(accStr.equals("*")){
 					access = DEFAULT;
 				}else{
-					throw new BadCondClauseFormat(condClause, 
+					throw new BadCondClauseFormat(condClauseStr, 
 					"Unexpected access string in method pattern: "
 							+ accStr);
 				}
@@ -295,7 +298,7 @@ class CallConditionClause extends AbstractConditionClause {
 								EntityWildCard.TYPE_WC);
 					}
 				} catch (PatternSyntaxException e) {
-					throw new BadCondClauseFormat(condClause, "Bad format of method pattern arg types: "
+					throw new BadCondClauseFormat(condClauseStr, "Bad format of method pattern arg types: "
 							+ at);
 				}
 			}
