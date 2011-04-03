@@ -6,6 +6,8 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -62,12 +64,10 @@ import org.eclipse.jface.action.IToolBarManager;
 import org.eclipse.jface.action.Separator;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
-import org.eclipse.core.resources.IResource;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.resources.IWorkspace;
 import org.eclipse.core.resources.IWorkspaceRunnable;
-import org.eclipse.core.resources.ResourceAttributes;
 import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
@@ -82,7 +82,6 @@ import org.objectweb.asm.tree.LineNumberNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 
-import edu.spsu.aj.weaver.AbstractConditionClause;
 import edu.spsu.aj.weaver.AbstractConditionClause.Context;
 import edu.spsu.aj.weaver.Aspect;
 import edu.spsu.aj.weaver.AspectRule;
@@ -267,6 +266,7 @@ public class AspectJavaView extends ViewPart {
 			}else if(obj instanceof Aspect){
 				// package.class format
 				String name =  ((Aspect) obj).getName();
+				// if lastIndexOf == -1 all works good
 				return name.substring(name.lastIndexOf('.') + 1);
 			}else if(obj instanceof AspectRule){	
 				return obj.toString();
@@ -1239,7 +1239,104 @@ public class AspectJavaView extends ViewPart {
 							return;
 						}
 					}
-					// TODO write joinpoints.xml
+					
+					// Write joinpoints.xml
+					try {
+						Writer w = new OutputStreamWriter(new FileOutputStream(str + "/" + "joinpoints.xml"), "UTF-8");
+						w.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+						w.write("<weaving destination=\"" + str + "\">\n");
+						w.write("<target_project>" + targProjPath + "</target_project>\n");
+						w.write("<aspects>\n");
+						for(AspectsContainer container : aspectModel.getAspectsContainers()){
+							w.write("<aspects_container isFolder=\"" + container.isFolder()
+									+ "\">" + container.getPath() + "</aspects_container>\n");
+						}
+						w.write("</aspects>\n");
+						w.write("<joinpoints>\n");
+						for(Joinpoint jp : checkedJoinpoints){
+							w.write("<joinpoint>\n");
+							w.write("<target_class sourceFile=\"" + jp.getClazz().sourceFile + "\">"
+									+ jp.getClazz().name.replace('/', '.') + "</target_class>\n");
+							String methodName = jp.getMethod().name;
+							methodName = methodName.replace("<", "&lt;");
+							methodName = methodName.replace(">", "&gt;");
+							w.write("<target_method>" + methodName + "</target_method>\n");
+							String kind = null;
+							String toString = null;
+							if(jp.getInstr() instanceof MethodInsnNode){
+								kind = "call";
+								
+								MethodInsnNode mInstr = (MethodInsnNode) jp.getInstr();
+								StringBuilder sb = new StringBuilder();
+								sb.append(Type.getReturnType(mInstr.desc).getClassName());
+								sb.append(" ");
+								sb.append(mInstr.owner.replace('/', '.'));
+								sb.append('.');
+								String methodName1 = mInstr.name;
+								methodName1 = methodName1.replace("<", "&lt;");
+								methodName1 = methodName1.replace(">", "&gt;");
+								sb.append(methodName1);
+								sb.append("(");			
+								Type[] argTypes = Type.getArgumentTypes(mInstr.desc);
+								if(argTypes.length > 0){
+									sb.append(argTypes[0].getClassName());
+								}
+								for(int i = 1; i < argTypes.length; i++){
+									sb.append(", " + argTypes[i].getClassName());
+								}
+								sb.append(")");
+								toString = sb.toString();
+							}else{
+								//TODO USE & ASSIGN kinds 
+							}
+							AbstractInsnNode line = jp.getInstr().getPrevious();
+							while(!(line instanceof LineNumberNode)){
+								line = line.getPrevious();
+							}
+							int lineNumber = ((LineNumberNode)line).line;
+							w.write("<target_point kind=\"" + kind + "\" line=\""
+									+ lineNumber + "\">" + toString + "</target_point>\n");
+							w.write("<action_weaved context=\"" + jp.getClause().getContext()
+									+ "\">\n");
+
+							// Build string for action
+							StringBuilder sb = new StringBuilder();
+							String actDesc = jp.getAspectRule().getAction().getDescriptor();
+							String retType = Type.getReturnType(actDesc).getClassName();
+							sb.append(retType);
+							sb.append(" ");
+							// This is the difference from action.toString()
+							sb.append(jp.getAspect().getName());
+							sb.append('.');
+							sb.append(jp.getAspectRule().getAction().getName());
+							sb.append("(");
+							
+							Type[] argTypes = Type.getArgumentTypes(actDesc);
+							
+							if(argTypes.length > 0){
+								sb.append(argTypes[0].getClassName());
+							}
+							for(int i = 1; i < argTypes.length; i++){
+								sb.append(", " + argTypes[i].getClassName());
+							}
+							sb.append(")");
+							w.write("<action aspect=\"" + jp.getAspect().getName()
+									+ "\" name=\"" + jp.getAspectRule().getAction().getName()
+									+ "\" desc=\"" + jp.getAspectRule().getAction().getDescriptor()
+									+ "\">" + sb + "</action>\n");
+							w.write("<args_info>" + jp.getClause().getArgsInfo() + "</args_info>\n");
+							w.write("</action_weaved>\n");
+							w.write("</joinpoint>\n");
+						}
+						w.write("</joinpoints>\n");
+						w.write("</weaving>");
+						w.close();
+					} catch (IOException e2) {
+						// TODO Auto-generated catch block
+						e2.printStackTrace();
+					}
+					
+					// Write classpath.txt
 					try {
 						FileWriter fw = new FileWriter(str + "/" + "classpath.txt");
 						StringBuilder classpath = new StringBuilder();
@@ -1427,24 +1524,5 @@ public class AspectJavaView extends ViewPart {
 				return true;
 			}
 		}
-	}
-	
-	private static class RuleCondClausePair{
-		private AspectRule rule;
-		private AbstractConditionClause condClause;
-		
-		RuleCondClausePair(AspectRule rule, AbstractConditionClause condClause) {
-			this.rule = rule;
-			this.condClause = condClause;
-		}
-
-		AspectRule getRule() {
-			return rule;
-		}
-
-		AbstractConditionClause getCondClause() {
-			return condClause;
-		}
-		
 	}
 }

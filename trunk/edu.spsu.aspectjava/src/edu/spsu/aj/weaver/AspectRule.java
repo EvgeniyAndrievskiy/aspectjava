@@ -8,9 +8,6 @@ public class AspectRule {
 	private String description;  // from AspectDescription annot
 	private RuleCondition condition;
 	private RuleAction action;
-	
-	private boolean firstToString = true;
-	private String toString;
 		
 	public AspectRule(RuleCondition condition, RuleAction action) throws BadArgsInRule {
 		this.condition = condition;
@@ -76,31 +73,8 @@ public class AspectRule {
 		return action;
 	}
 	
-	public String toString(){
-		if(firstToString){
-			StringBuilder stringBuilder = new StringBuilder("");
-			stringBuilder.append(Type.getReturnType(action.getDescriptor()).getClassName());
-			stringBuilder.append(" ");
-			stringBuilder.append(action.getName());
-			stringBuilder.append("(");
-			
-			Type[] argTypes = Type.getArgumentTypes(action.getDescriptor());
-			
-			if(argTypes.length > 0){
-				stringBuilder.append(argTypes[0].getClassName());
-			}
-			for(int i = 1; i < argTypes.length; i++){
-				stringBuilder.append(", " + argTypes[i].getClassName());
-			}
-			stringBuilder.append(") -> ");
-			stringBuilder.append(condition);
-			
-			toString = stringBuilder.toString();
-			
-			firstToString = false;
-		}
-		
-		return toString;
+	public String toString(){	
+		return action + " -> " + condition;
 	}
 
 }
