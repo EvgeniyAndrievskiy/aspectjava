@@ -88,7 +88,7 @@ import edu.spsu.aj.weaver.AspectRule;
 import edu.spsu.aj.weaver.Joinpoint;
 import edu.spsu.aj.weaver.LocalVariablesAdapter;
 import edu.spsu.aj.weaver.Weaver;
-import edu.spsu.aj.eclipse.AspectsModel.*;
+import edu.spsu.aj.ui.AspectsModel.*;
 
 
 public class AspectJavaView extends ViewPart {
