@@ -1,4 +1,4 @@
-package edu.spsu.aj.eclipse;
+package edu.spsu.aj.ui;
 
 import java.io.File;
 import java.io.FileInputStream;

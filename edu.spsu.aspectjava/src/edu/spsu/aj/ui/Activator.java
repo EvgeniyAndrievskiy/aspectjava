@@ -1,4 +1,4 @@
-package edu.spsu.aj.eclipse;
+package edu.spsu.aj.ui;
 
 import org.eclipse.jface.resource.ImageDescriptor;
 import org.eclipse.ui.plugin.AbstractUIPlugin;
