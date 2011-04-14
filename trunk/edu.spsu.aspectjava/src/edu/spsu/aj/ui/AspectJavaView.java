@@ -98,7 +98,7 @@ public class AspectJavaView extends ViewPart {
 	private Label projectLabel1;
 	private TreeViewer aspViewer;
 	private AspectsModel aspectModel;
-	private AspectsModelListener aspectModelListener;
+//	private AspectsModelListener aspectsModelListener;
 	
 	private TabItem joinpointTab;
 	private Label projectLabel2;
@@ -153,352 +153,13 @@ public class AspectJavaView extends ViewPart {
 	 * (like Task List, for example).
 	 */
 
-	class AspectsContentProvider implements ITreeContentProvider,
-										   AspectsModelListener{
-		private Object[] emptyArray = new Object[0];
-		
-
-		public void inputChanged(Viewer v, Object oldInput, Object newInput) {
-			if(newInput == null){
-				return;
-			}
-			aspectModel = (AspectsModel) newInput;
-			if(oldInput != null){
-				((AspectsModel) oldInput).removeListener(this);
-			}
-			aspectModel.addListener(this);		
-		}
-		
-		public void dispose() {
-		}
-		
-		public Object[] getElements(Object parent) {
-			return ((AspectsModel) parent).getAspectsContainers().toArray();
-		}
-		
-		public Object getParent(Object child) {
-			if(child instanceof AspectsContainer){
-				return null;
-			}else if(child instanceof Aspect){
-//				return ((Aspect) child).getAspectJar();
-			}else if(child instanceof AspectRule){
-//				return ((AspectWeavingRule) child).getAspect();
-			}
-			return null;		
-		}
-		
-		public Object [] getChildren(Object parent) {
-			if(parent instanceof AspectsContainer){
-				return ((AspectsContainer) parent).getPackages().toArray();
-			}else if(parent instanceof AspectsPackage){
-				return ((AspectsPackage) parent).getAspects().toArray();
-			}else if(parent instanceof Aspect){
-				return ((Aspect) parent).getRules().toArray();
-			}else if(parent instanceof AspectRule){
-				return emptyArray;
-			}
-			return null;
-		}
-		
-		public boolean hasChildren(Object parent) {
-			return getChildren(parent).length != 0;
-		}
-
-		public void aspectsContainerAdded(AspectsContainer container) {
-			aspViewer.add(aspectModel, container);	
-		}
-		
-		@Override
-		public void aspectsContainerAdded(int index, AspectsContainer container) {
-			aspViewer.insert(aspectModel, container, index);
-			aspViewer.setSelection(new StructuredSelection(container));
-		}
-
-		public void aspectsContainerRemoved(AspectsContainer container, int index) {
-			aspViewer.remove(aspectModel, index);
-			if(aspectModel.isEmpty()){
-				return;
-			}
-			if(index > (aspectModel.getContainersCount() + 1) / 2 - 1){
-				aspViewer.setSelection(new StructuredSelection(aspectModel.getLastContainer()));
-			}else{
-				aspViewer.setSelection(new StructuredSelection(aspectModel.getFirstContainer()));
-			}		
-		}
-
-		public void containerMovedDown(AspectsContainer container) {
-			int oldIndex = aspectModel.indexOf(container) - 1;
-			TreePath[] treePaths = aspViewer.getExpandedTreePaths();
-			aspViewer.remove(aspectModel, oldIndex);
-			if(oldIndex == aspectModel.getContainersCount() - 1){
-				aspViewer.add(aspectModel, container);	
-				aspViewer.setExpandedTreePaths(treePaths);
-			}else{
-				aspViewer.insert(aspectModel, container, oldIndex + 1);
-				aspViewer.setExpandedTreePaths(treePaths);
-			}
-			
-			IStructuredSelection selection = new StructuredSelection(container);
-			aspViewer.setSelection(selection);
-		}
-
-		public void containerMovedUp(AspectsContainer container) {
-			int oldIndex = aspectModel.indexOf(container) + 1;
-			TreePath[] treePaths = aspViewer.getExpandedTreePaths();
-			aspViewer.remove(aspectModel, oldIndex);
-			aspViewer.insert(aspectModel, container, oldIndex - 1);	
-			aspViewer.setExpandedTreePaths(treePaths);
-			
-			IStructuredSelection selection = new StructuredSelection(container);
-			aspViewer.setSelection(selection);
-			
-		}
-
-	}
 	
-	class AspectsLabelProvider extends ColumnLabelProvider {
-
-		public String getText(Object obj) {
-			if(obj instanceof AspectsContainer){
-				return ((AspectsContainer) obj).getPath();
-			}else if(obj instanceof AspectsPackage){
-				return ((AspectsPackage) obj).getName();
-			}else if(obj instanceof Aspect){
-				// package.class format
-				String name =  ((Aspect) obj).getName();
-				// if lastIndexOf == -1 all works good
-				return name.substring(name.lastIndexOf('.') + 1);
-			}else if(obj instanceof AspectRule){	
-				return obj.toString();
-			}
-			return null;
-		}
-		
-		@Override
-		public String getToolTipText(Object element) {
-			if(element instanceof AspectsContainer){
-				return null;
-			}else if(element instanceof AspectsPackage){
-				return ((AspectsPackage) element).getPath();
-			}else if(element instanceof Aspect){
-				return ((Aspect) element).getDescription();
-			}else if(element instanceof AspectRule){	
-				return ((AspectRule) element).getDescription();
-			}
-			return null;
-		}
-		
-		@Override
-		public int getToolTipTimeDisplayed(Object object) {
-			return 5000;
-		}
-		
-		@Override
-		public int getToolTipDisplayDelayTime(Object object) {
-			return 0;
-		}
-		
-//		@Override
-//		public boolean useNativeToolTip(Object object) {
-//			return true;
-//		}
-				
-		public Image getImage(Object obj) {
-			if(obj instanceof AspectsContainer){
-				if(((AspectsContainer) obj).isFolder()){
-					return folderImage;
-				}else{
-					return jarImage;
-				}
-			}else if(obj instanceof AspectsPackage){
-				return packageImage;
-			}else if(obj instanceof Aspect){
-				return aspectImage;
-			}else if(obj instanceof AspectRule){
-				return ruleImage;
-			}
-			return null;
-		}
-	}
 	
-	class JoinpointsContentProvider implements ITreeContentProvider {
-		private Object[] emptyArray = new Object[0];
-		private List<Joinpoint> input;
-
-		public void inputChanged(Viewer v, Object oldInput, Object newInput) {
-			input = (List<Joinpoint>) newInput;
-		}
-
-		public void dispose() {
-		}
-
-		public Object[] getElements(Object parent) {
-			List<Joinpoint> joinpoints = (List<Joinpoint>) parent;
-			Set<String> packages = new HashSet<String>();
-			for(Joinpoint jp : joinpoints){
-				ClassNode cn = jp.getClazz();
-				int l = cn.name.lastIndexOf('/');
-				if(l < 0){
-					packages.add(AspectsPackage.DEFAULT_PACKAGE);
-				}else{
-					packages.add(cn.name.substring(0, l));
-				}
-			}
-			return packages.toArray();
-		}
-
-		public Object getParent(Object child) {
-//			if (child instanceof TreeObject) {
-//				return ((TreeObject) child).getParent();
-//			}
-			return null;
-		}
-
-		public Object[] getChildren(Object parent) {
-			if(parent instanceof String){  // case for packages
-				List<ClassNode> classNodes = new IdentityLinkedList<ClassNode>();
-				for(Joinpoint jp : input){
-					String package1 = null;
-					int l = jp.getClazz().name.lastIndexOf('/');
-					if(l < 0){
-						package1 = AspectsPackage.DEFAULT_PACKAGE;
-					}else{
-						package1 = jp.getClazz().name.substring(0, l);
-					}
-					if(parent.hashCode() != package1.hashCode()){
-						continue;
-					}else{
-						if(parent.equals(package1)){
-							classNodes.add(jp.getClazz());
-						}
-					}
-				}
-				return classNodes.toArray();
-			}else if(parent instanceof ClassNode){
-				List<MethodNode> methods = new IdentityLinkedList<MethodNode>();
-				for(Joinpoint joinpoint : input){
-					if(parent == joinpoint.getClazz()){
-						methods.add(joinpoint.getMethod());
-					}
-				}
-				return methods.toArray();
-			}else if(parent instanceof MethodNode){
-				List<AbstractInsnNode> instr = new IdentityLinkedList<AbstractInsnNode>();
-				for(Joinpoint joinpoint : input){
-					if(parent == joinpoint.getMethod()){
-						instr.add(joinpoint.getInstr());
-					}
-				}
-				return instr.toArray();
-			}else if(parent instanceof AbstractInsnNode){
-				List<Joinpoint> jps = new LinkedList<Joinpoint>();
-				for(Joinpoint jp : input){
-					if(parent == jp.getInstr()){
-						jps.add(jp);
-					}
-				}
-				return jps.toArray();
-			}else{
-				return emptyArray;
-			}
-		}
-
-		// TODO think about performance ?
-		public boolean hasChildren(Object parent) {
-			return getChildren(parent).length != 0;
-		}
-
-	}
 	
-	class JoinpointsLabelProvider extends LabelProvider {
-
-		public String getText(Object obj) {
-			if(obj instanceof String){  // case for packages
-				return ((String) obj).replace('/', '.');
-			}else if(obj instanceof ClassNode){
-				ClassNode cn = (ClassNode) obj;
-				int l = cn.name.lastIndexOf('/');
-				if(l < 0){
-					return cn.name;
-				}else{
-					return cn.name.substring(l + 1);
-				}
-			}else if(obj instanceof MethodNode){
-				return ((MethodNode) obj).name;
-			}else if(obj instanceof AbstractInsnNode){
-				AbstractInsnNode instr = (AbstractInsnNode) obj;
-				// CALL joinpoint case
-				if(instr instanceof MethodInsnNode){
-					MethodInsnNode mInstr = (MethodInsnNode) instr;
-					StringBuilder sb = new StringBuilder("%call ");
-					sb.append(Type.getReturnType(mInstr.desc).getClassName());
-					sb.append(" ");
-					sb.append(mInstr.owner.replace('/', '.'));
-					sb.append('.');
-					sb.append(mInstr.name);
-					sb.append("(");
-					
-					Type[] argTypes = Type.getArgumentTypes(mInstr.desc);
-					
-					if(argTypes.length > 0){
-						sb.append(argTypes[0].getClassName());
-					}
-					for(int i = 1; i < argTypes.length; i++){
-						sb.append(", " + argTypes[i].getClassName());
-					}
-					sb.append(")");
-					AbstractInsnNode line = instr.getPrevious();
-					while(!(line instanceof LineNumberNode)){
-						line = line.getPrevious();
-					}
-					sb.append(" @ line ");
-					sb.append(((LineNumberNode)line).line);
-					return sb.toString();
-				}// USE & ASSIGN joinpoint cases
-				else{
-					return "";
-				}
-			}else if(obj instanceof Joinpoint){
-				Joinpoint jp = (Joinpoint) obj;
-				StringBuilder sb = new StringBuilder();
-				String actDesc = jp.getAspectRule().getAction().getDescriptor();
-				String retType = Type.getReturnType(actDesc).getClassName();
-				sb.append(retType);
-				sb.append(" ");
-				sb.append(jp.getAspect().getName());
-				sb.append('.');
-				sb.append(jp.getAspectRule().getAction().getName());
-				sb.append("(");
-				
-				Type[] argTypes = Type.getArgumentTypes(actDesc);
-				
-				if(argTypes.length > 0){
-					sb.append(argTypes[0].getClassName());
-				}
-				for(int i = 1; i < argTypes.length; i++){
-					sb.append(", " + argTypes[i].getClassName());
-				}
-				sb.append(") -> ");
-				sb.append(jp.getClause());
-				return sb.toString();
-			}
-			return null;
-		}
-		public Image getImage(Object obj) {
-			if(obj instanceof String){  // case for packages
-				return packageImage;
-			}else if(obj instanceof ClassNode){
-				return classImage;
-			}else if(obj instanceof MethodNode){
-				return methodImage;
-			}else if(obj instanceof AbstractInsnNode){
-				return sourceImage;
-			}else if(obj instanceof Joinpoint){
-				return ruleImage;
-			}
-			return null;
-		}
-	}
+	
+	
+	
+	
 
 	/**
 	 * The constructor.
@@ -526,7 +187,7 @@ public class AspectJavaView extends ViewPart {
 		
 		createAspectTab();
 		
-		initAspectModelListener();
+		createAspectsModelListener();
 		
 		initProjectsChangeListener();
 		
@@ -1371,35 +1032,69 @@ public class AspectJavaView extends ViewPart {
 		joinpointTab.setControl(joinTabComp);
 	}
 	
-	private void initAspectModelListener(){
-		aspectModelListener = new AspectsModelListener(){
+	private void createAspectsModelListener(){
+		aspectModel.addListener(new AspectsModelListener(){
 
 			public void aspectsContainerAdded(AspectsContainer container) {
+				aspViewer.add(aspectModel, container);
+
 				updateToolBar();
 				updateFindButton();
 			}
 			
 			public void aspectsContainerAdded(int index, AspectsContainer container) {
+				aspViewer.insert(aspectModel, container, index);
+				aspViewer.setSelection(new StructuredSelection(container));
+				
 				updateToolBar();
 				updateFindButton();
 			}
 
 			public void aspectsContainerRemoved(AspectsContainer container, int index) {
+				aspViewer.remove(aspectModel, index);
+				if (! aspectModel.isEmpty()) {
+					if (index > (aspectModel.getContainersCount() + 1) / 2 - 1) {
+						aspViewer.setSelection(new StructuredSelection(aspectModel
+								.getLastContainer()));
+					} else {
+						aspViewer.setSelection(new StructuredSelection(aspectModel
+								.getFirstContainer()));
+					}
+				}
+				
 				if(aspectModel.isEmpty()){
 					findButton.setEnabled(false);
 				}
 			}
 			
 			public void containerMovedDown(AspectsContainer container) {
-				
+				int oldIndex = aspectModel.indexOf(container) - 1;
+				TreePath[] treePaths = aspViewer.getExpandedTreePaths();
+				aspViewer.remove(aspectModel, oldIndex);
+				if (oldIndex == aspectModel.getContainersCount() - 1) {
+					aspViewer.add(aspectModel, container);
+					aspViewer.setExpandedTreePaths(treePaths);
+				} else {
+					aspViewer.insert(aspectModel, container, oldIndex + 1);
+					aspViewer.setExpandedTreePaths(treePaths);
+				}
+
+				IStructuredSelection selection = new StructuredSelection(container);
+				aspViewer.setSelection(selection);
 			}
 
 			public void containerMovedUp(AspectsContainer container) {
-				
+				int oldIndex = aspectModel.indexOf(container) + 1;
+				TreePath[] treePaths = aspViewer.getExpandedTreePaths();
+				aspViewer.remove(aspectModel, oldIndex);
+				aspViewer.insert(aspectModel, container, oldIndex - 1);
+				aspViewer.setExpandedTreePaths(treePaths);
+
+				IStructuredSelection selection = new StructuredSelection(container);
+				aspViewer.setSelection(selection);
 			}
 			
-		};
-		aspectModel.addListener(aspectModelListener);
+		});
 	}
 	
 	private void initProjectsChangeListener(){
@@ -1504,25 +1199,4 @@ public class AspectJavaView extends ViewPart {
 		}
 	}
 	
-	// Special utility-class used in JoinpointsContentProvider. 
-	private static class IdentityLinkedList<E> extends LinkedList<E>{
-		@Override
-		public boolean contains(Object arg0) {
-			for(E element : this){
-				if(element == arg0){
-					return true;
-				}
-			}
-			return false;
-		}
-		
-		public boolean add(E arg0) {
-			if(contains(arg0)){
-				return false;
-			}else{
-				super.add(arg0);
-				return true;
-			}
-		}
-	}
 }
