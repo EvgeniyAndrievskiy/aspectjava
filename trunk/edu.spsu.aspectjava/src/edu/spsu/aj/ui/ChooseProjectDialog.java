@@ -1,4 +1,4 @@
-package edu.spsu.aj.eclipse;
+package edu.spsu.aj.ui;
 
 import java.util.LinkedList;
 import java.util.List;
