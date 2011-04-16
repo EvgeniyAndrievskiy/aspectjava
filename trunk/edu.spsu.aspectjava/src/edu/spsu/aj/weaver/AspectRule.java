@@ -9,21 +9,21 @@ public class AspectRule {
 	private RuleCondition condition;
 	private RuleAction action;
 		
-	public AspectRule(RuleCondition condition, RuleAction action) throws BadArgsInRule {
+	public AspectRule(RuleCondition condition, RuleAction action) throws BadArgsInRuleExc {
 		this.condition = condition;
 		this.action = action;
 		description = null;
 		checkArgs();
 	}
 	
-	public AspectRule(String desc, RuleCondition condition, RuleAction action) throws BadArgsInRule {
+	public AspectRule(String desc, RuleCondition condition, RuleAction action) throws BadArgsInRuleExc {
 		this.condition = condition;
 		this.action = action;
 		this.description = desc;
 		checkArgs();
 	}
 	
-	private void checkArgs() throws BadArgsInRule{
+	private void checkArgs() throws BadArgsInRuleExc{
 		Iterator<AbstractConditionClause> iter = condition.getCondClauses();
 		while(iter.hasNext()){
 			AbstractConditionClause clause = iter.next();
@@ -50,12 +50,12 @@ public class AspectRule {
 			
 			if(clause.getArgsInfo() != null && 
 					actArgTypes.length != clause.getArgsInfo().getArgsCount()){
-				throw new BadArgsInRule(this, clause, "Disparity between args count in " +
+				throw new BadArgsInRuleExc(this, clause, "Disparity between args count in " +
 						"args info & action args count.");
 			}
 			if(clause.getArgsInfo() == null && 
 					Type.getArgumentTypes(action.getDescriptor()).length != 0){
-				throw new BadArgsInRule(this, clause, "Missed args info.");
+				throw new BadArgsInRuleExc(this, clause, "Missed args info.");
 			}
 			
 		}
@@ -74,7 +74,7 @@ public class AspectRule {
 	}
 	
 	public String toString(){	
-		return action + " -> " + condition;
+		return condition + " -> " + action;
 	}
 
 }

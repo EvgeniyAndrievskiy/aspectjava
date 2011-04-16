@@ -12,14 +12,14 @@ public class RuleCondition {
 	private String conditionStr;	
 	private List<AbstractConditionClause> condClauses;
 	
-	public RuleCondition(String condition) throws BadCondClauseFormat{
+	public RuleCondition(String condition) throws BadCondClauseExc{
 		this.conditionStr = condition.trim();
 		condClauses = new LinkedList<AbstractConditionClause>();
 		
 		parseConditionString(condition);
 	}
 	
-	private void parseConditionString(String cond) throws BadCondClauseFormat {
+	private void parseConditionString(String cond) throws BadCondClauseExc {
 		cond = cond.trim();
 		String[] clauses = cond.split("\\|\\|");
 		for(String s : clauses){

@@ -1,14 +1,14 @@
 package edu.spsu.aj.weaver;
 
-public class BadCondClauseFormat extends Exception {
+public class BadCondClauseExc extends Exception {
 	private String condClause;
 	
-	BadCondClauseFormat(String condClause, String message) {
+	BadCondClauseExc(String condClause, String message) {
 		super(message);
 		this.condClause = condClause;
 	}
 	
-	BadCondClauseFormat(String condClause) {
+	BadCondClauseExc(String condClause) {
 		super();
 		this.condClause = condClause;
 	}
