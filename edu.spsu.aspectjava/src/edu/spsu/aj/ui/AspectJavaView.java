@@ -58,8 +58,10 @@ import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IToolBarManager;
 import org.eclipse.jface.action.Separator;
+import org.eclipse.jface.dialogs.ErrorDialog;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
+import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.resources.IWorkspace;
@@ -68,7 +70,10 @@ import org.eclipse.core.resources.ResourcesPlugin;
 import org.eclipse.core.runtime.CoreException;
 import org.eclipse.core.runtime.IPath;
 import org.eclipse.core.runtime.IProgressMonitor;
+import org.eclipse.core.runtime.IStatus;
+import org.eclipse.core.runtime.MultiStatus;
 import org.eclipse.core.runtime.Path;
+import org.eclipse.core.runtime.Status;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Type;
@@ -79,11 +84,12 @@ import org.objectweb.asm.tree.MethodInsnNode;
 
 import edu.spsu.aj.weaver.AbstractConditionClause.Context;
 import edu.spsu.aj.weaver.Aspect;
+import edu.spsu.aj.weaver.BadArgsInRuleExc;
+import edu.spsu.aj.weaver.BadCondClauseExc;
 import edu.spsu.aj.weaver.Joinpoint;
 import edu.spsu.aj.weaver.LocalVariablesAdapter;
 import edu.spsu.aj.weaver.Weaver;
-import edu.spsu.aj.ui.AspectsModel.AspectsContainer;
-import edu.spsu.aj.ui.AspectsModel.AspectsPackage;
+import edu.spsu.aj.ui.AspectsModel.*;
 
 
 public class AspectJavaView extends ViewPart {
@@ -126,6 +132,7 @@ public class AspectJavaView extends ViewPart {
 	private DirectoryDialog folderChooseDialog;
 	private FileDialog jarsChooseDialog;
 	private ChooseProjectDialog projectDialog;
+	private ErrorDialogWithSave errorDialogWithSave;
 	
 	private IJavaProject targetProject = null;
 	private List<File> targProjClassFiles;
@@ -185,6 +192,7 @@ public class AspectJavaView extends ViewPart {
 		projectDialog = new ChooseProjectDialog(getViewSite().getShell(), 
 				"Choose project", "Choose target project for weaving.\n" +
 				"NOTE: you can choose only java project.");
+		errorDialogWithSave = null;
 				
 //		hookContextMenu();
 //		hookDoubleClickAction();
@@ -836,248 +844,284 @@ public class AspectJavaView extends ViewPart {
 	//		getSite().registerContextMenu(menuMgr, joinpViewer);
 	//	}
 	
-		private void fillLocalToolBar(IToolBarManager manager) {
-			// Make actions
-			setProjectAction = new Action(){
-				public void run(){
-					int returnedCode = projectDialog.open();
-					if(returnedCode == ChooseProjectDialog.OK){
-						if(projectDialog.getChosen() != null){
-							if(targetProject != null && 
-									targetProject.getProject() == projectDialog.getChosen().getProject()){
-								return;
-							}
-							targetProject = projectDialog.getChosen();
-							synchronized (lock) {
-								lock.notify();
-							}
-							projectLabel1.setText(targetProject.getProject().getName());
-							projectLabel2.setText(targetProject.getProject().getName());
-							updateFindButton();
-							joinpViewer.setInput(null);
-							weaveButton.setEnabled(false);
-							resetAction.setEnabled(false);
-							
+	private void fillLocalToolBar(IToolBarManager manager) {
+		// Make actions
+		setProjectAction = new Action(){
+			public void run(){
+				int returnedCode = projectDialog.open();
+				if(returnedCode == ChooseProjectDialog.OK){
+					if(projectDialog.getChosen() != null){
+						if(targetProject != null && 
+								targetProject.getProject() == projectDialog.getChosen().getProject()){
+							return;
 						}
-					}
-				}
-			};
-			setProjectAction.setToolTipText("Choose target project for weaving");
-			setProjectAction.setEnabled(true);
-			setProjectAction.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
-					getImageDescriptor(IDE.SharedImages.IMG_OBJ_PROJECT));
-			
-			addFolderAction = new Action() {
-				
-				public void run() {
-					folderChooseDialog.setMessage("Choose aspects folder.");
-					folderChooseDialog.setFilterPath(ResourcesPlugin.getWorkspace().getRoot().getLocation().toString());
-					String str = folderChooseDialog.open();
-					if (str != null) {
-							try {
-								boolean added =  aspectModel.addAspectsContainer(str);
-								if(!added){
-									MessageDialog.openError(getViewSite().getShell(),
-									"Error", "Folder " + str
-									+ " is already added.");
-								}
-							} catch (IOException e) {
-								// This exception type is not expected.
-	//							MessageDialog.openError(getViewSite()
-	//									.getShell(), "Error",
-	//									"There are some I/O errors while loading " + str + ".");
-							} catch (NoAspectsInContainerException e) {
-								MessageDialog.openError(getViewSite().getShell(),
-								"Error", "Folder " + str
-								+ " contains no aspects.");
-							}
-					}
-				}
-			};
-			addFolderAction.setToolTipText("Add aspects folder");
-			addFolderAction.setEnabled(true);
-			ImageDescriptor add = Activator.getImageDescriptor(Activator.IMG_ADD_DEC);
-			DecorationOverlayIcon d = new DecorationOverlayIcon(folderImage, add, IDecoration.BOTTOM_LEFT);
-			addFolderAction.setImageDescriptor(d);
-			
-			addJarsAction = new Action() {
-		
-				public void run() {
-					String str = jarsChooseDialog.open();
-					String[] fileNames = jarsChooseDialog.getFileNames();
-					if (str != null) {
-						String parent = new File(str).getParent();
-						for (int i = 0; i < fileNames.length; i++) {
-							String path = parent + '\\' + fileNames[i];
-							try {	
-								boolean added =  aspectModel.addAspectsContainer(path);
-								if(!added){
-									MessageDialog.openError(getViewSite().getShell(),
-									"Error", "JAR " + path
-									+ " is already added.");
-								}
-							} catch (IOException e) {
-								MessageDialog.openError(getViewSite().getShell(), "Error",
-										"There are some I/O errors while loading " + path + ".");
-							} catch (NoAspectsInContainerException e) {
-								MessageDialog.openError(getViewSite().getShell(),
-								"Error", "JAR " + path
-								+ " contains no aspects.");
-							}
-						}
-					}
-				}
-			};
-			addJarsAction.setToolTipText("Add aspects JARs");
-			addJarsAction.setEnabled(true);
-			DecorationOverlayIcon d1 = new DecorationOverlayIcon(jarImage, add, IDecoration.BOTTOM_LEFT);
-			addJarsAction.setImageDescriptor(d1);
-	
-			removeAction = new Action() {
-				public void run() {
-					Object selected = ((IStructuredSelection)aspViewer.getSelection())
-						.getFirstElement();
-					if(selected instanceof AspectsContainer){
-						aspectModel.removeAspectsContainer((AspectsContainer) selected);
-					}else{
-						removeAction.setEnabled(false);
-						return;
-					}
-				}
-			};
-			removeAction.setToolTipText("Remove selected folder/JAR");
-			removeAction.setEnabled(false);
-			removeAction.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
-					getImageDescriptor(ISharedImages.IMG_ETOOL_DELETE));
-	
-			reloadAction = new Action() {
-				public void run() {
-					Object selected = ((IStructuredSelection)aspViewer.getSelection())
-						.getFirstElement();
-					if(selected instanceof AspectsContainer){
-						AspectsContainer container = (AspectsContainer) selected;
-						String path = container.getPath();
-						String contStr = container.isFolder()? "Folder" : "JAR";
-						int index = aspectModel.removeAspectsContainer(container);
-						try {
-							aspectModel.addAspectsContainer(index, path);
-						} catch (NoAspectsInContainerException e) {
-							MessageDialog.openError(getViewSite().getShell(),
-									"Error", contStr + " " + path
-									+ " contains no aspects.");
-						} catch (IOException e) {
-							MessageDialog.openError(getViewSite().getShell(), "Error",
-									"There are some I/O errors while loading " + path + ".");
-						}
-					}else{
-						reloadAction.setEnabled(false);
-						return;
-					}
-				}
-			};
-			reloadAction.setToolTipText("Reload selected folder/JAR");
-			reloadAction.setEnabled(false);
-			reloadAction.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_REFRESH));
-	
-			moveDownAction = new Action() {
-				public void run() {
-					Object selected = ((IStructuredSelection) aspViewer
-							.getSelection()).getFirstElement();
-					if (selected instanceof AspectsContainer) {
-						boolean moved = aspectModel.moveContainerDown((AspectsContainer) selected);
-						if(!moved){
-							moveDownAction.setEnabled(false);
-						}
-					} else {
-						moveDownAction.setEnabled(false);
-						return;
-					}
-				}
-			};
-			moveDownAction.setToolTipText("Move folder/JAR down the list");
-			moveDownAction.setEnabled(false);
-			moveDownAction.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_ARROW_DOWN));
-	
-			moveUpAction = new Action() {
-				public void run() {
-					Object selected = ((IStructuredSelection) aspViewer
-							.getSelection()).getFirstElement();
-					if (selected instanceof AspectsContainer) {
-						boolean moved = aspectModel.moveContainerUp((AspectsContainer) selected);
-						if(!moved){
-							moveUpAction.setEnabled(false);
-						}
-					} else {
-						moveUpAction.setEnabled(false);
-						return;
-					}
-				}
-			};
-			moveUpAction.setToolTipText("Move folder/JAR up the list");
-			moveUpAction.setEnabled(false);
-			moveUpAction.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_ARROW_UP));
-	
-	//		optionsAction = new Action() {
-	//			public void run() {
-	//				
-	//			}
-	//		};
-	//		optionsAction.setToolTipText("Options...");
-	//		optionsAction.setEnabled(true);
-	//		optionsAction.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_OPTIONS));
-	
-			resetAction = new Action() {
-				public void run() {
-					// Fix potential bug
-					if(joinpViewer.getInput() == null){
-						setEnabled(false);
-						return;
-					}
-					boolean ok = MessageDialog.openConfirm(getViewSite().getShell(), "Confirm", 
-							"Do you really want to reset the joinpoints and " +
-							"unlock target project?");
-					if(ok){
-						joinpViewer.setInput(null);
-						weaveButton.setEnabled(false);
-						resetAction.setEnabled(false);
-						// Unlock target project
+						targetProject = projectDialog.getChosen();
 						synchronized (lock) {
 							lock.notify();
 						}
 						projectLabel1.setText(targetProject.getProject().getName());
 						projectLabel2.setText(targetProject.getProject().getName());
+						updateFindButton();
+						joinpViewer.setInput(null);
+						weaveButton.setEnabled(false);
+						resetAction.setEnabled(false);
+						
 					}
 				}
-			};
-			resetAction.setToolTipText("Reset joinpoints and unlock target project");
-			resetAction.setEnabled(false);
-			resetAction.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
-					getImageDescriptor(ISharedImages.IMG_ETOOL_CLEAR));
-	
-			// doubleClickAction = new Action() {
-			// public void run() {
-			// ISelection selection = viewer.getSelection();
-			// Object obj = ((IStructuredSelection)selection).getFirstElement();
-			// showMessage("Double-click detected on "+obj.toString());
-			// }
-			// };
+			}
+		};
+		setProjectAction.setToolTipText("Choose target project for weaving");
+		setProjectAction.setEnabled(true);
+		setProjectAction.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
+				getImageDescriptor(IDE.SharedImages.IMG_OBJ_PROJECT));
+		
+		addFolderAction = new Action() {
 			
-			// Add actions
-			Separator separator = new Separator();
-			manager.add(setProjectAction);
-			manager.add(separator);
-			manager.add(addFolderAction);
-			manager.add(addJarsAction);
-			manager.add(separator);
-			manager.add(moveDownAction);
-			manager.add(moveUpAction);
-			manager.add(removeAction);
-			manager.add(reloadAction);
-			manager.add(separator);
-			manager.add(resetAction);
-	//		manager.add(separator);
-	//		manager.add(optionsAction);
-		}
+			public void run() {
+				folderChooseDialog.setMessage("Choose aspects folder.");
+				folderChooseDialog.setFilterPath(ResourcesPlugin.getWorkspace().getRoot().getLocation().toString());
+				String str = folderChooseDialog.open();
+				if (str != null) {
+					try {
+						List<BadAspect> badAspects =  aspectModel.addAspectsContainer(str);
+						if(badAspects == null){
+							MessageDialog.openInformation(getViewSite().getShell(),
+							"Information", "Folder " + str
+							+ " is already added.");
+						}
+						if(! badAspects.isEmpty()){
+							MultiStatus status = new MultiStatus(Activator.PLUGIN_ID, IStatus.OK,
+									"(click 'Details' button for detailed information)", null);
+							for(BadAspect badAspect : badAspects){
+								Exception e = badAspect.getException();
+								String excDesc = null;
+								if(e instanceof BadArgsInRuleExc){
+									BadArgsInRuleExc bE = (BadArgsInRuleExc) e;
+									excDesc = bE.getClause() + " -> " + bE.getRule().getAction()
+										+ " (" + e.getMessage() + ")";
+								}else if(e instanceof BadCondClauseExc){
+									BadCondClauseExc bE = (BadCondClauseExc) e;
+									excDesc = bE.getCondClause() + " ("
+										+ bE.getMessage() + ")";
+								}
+								Status status2 = new Status(IStatus.ERROR, 
+										Activator.PLUGIN_ID, badAspect.getClassFilePath()
+										+ ": \n\t" + excDesc);
+								status.add(status2);
+							}
+//							if(errorDialogWithSave == null){
+								errorDialogWithSave = new ErrorDialogWithSave(getViewSite().getShell(), "Some aspects are" +
+								" rejected due to bad format.", status);
+//							}else{
+//								errorDialogWithSave.setStatus(status);
+//								errorDialogWithSave.setMessage("Some aspects are" +
+//									" rejected due to bad format.");
+//							}
+							errorDialogWithSave.open();
+						}
+					} catch (IOException e) {
+						MessageDialog.openError(getViewSite()
+								.getShell(), "Error",
+								"There are some I/O errors while loading " + str + ".");
+					} catch (NoAspectsInContainerException e) {
+						MessageDialog.openInformation(getViewSite().getShell(),
+						"Information", "Folder " + str
+						+ " contains no aspects.");
+					}
+				}
+			}
+		};
+		addFolderAction.setToolTipText("Add aspects folder");
+		addFolderAction.setEnabled(true);
+		ImageDescriptor add = Activator.getImageDescriptor(Activator.IMG_ADD_DEC);
+		DecorationOverlayIcon d = new DecorationOverlayIcon(folderImage, add, IDecoration.BOTTOM_LEFT);
+		addFolderAction.setImageDescriptor(d);
+		
+		addJarsAction = new Action() {
+	
+			public void run() {
+				String str = jarsChooseDialog.open();
+				String[] fileNames = jarsChooseDialog.getFileNames();
+				if (str != null) {
+					String parent = new File(str).getParent();
+					for (int i = 0; i < fileNames.length; i++) {
+						String path = parent + '\\' + fileNames[i];
+						try {	
+							List<BadAspect> badAspects =  aspectModel.addAspectsContainer(path);
+							if(badAspects == null){
+								MessageDialog.openInformation(getViewSite().getShell(),
+								"Information", "JAR " + path
+								+ " is already added.");
+							}
+							if(! badAspects.isEmpty()){
+								MessageDialog.openInformation(getViewSite().getShell(),
+										"Information", "There are aspects that were" +
+												" rejected due to bad format. See " +
+												"'Problems' view for details.");
+								
+							}
+						} catch (IOException e) {
+							MessageDialog.openError(getViewSite().getShell(), "Error",
+									"There are some I/O errors while loading " + path + ".");
+						} catch (NoAspectsInContainerException e) {
+							MessageDialog.openInformation(getViewSite().getShell(),
+							"Information", "JAR " + path
+							+ " contains no aspects.");
+						}
+					}
+				}
+			}
+		};
+		addJarsAction.setToolTipText("Add aspects JARs");
+		addJarsAction.setEnabled(true);
+		DecorationOverlayIcon d1 = new DecorationOverlayIcon(jarImage, add, IDecoration.BOTTOM_LEFT);
+		addJarsAction.setImageDescriptor(d1);
+
+		removeAction = new Action() {
+			public void run() {
+				Object selected = ((IStructuredSelection)aspViewer.getSelection())
+					.getFirstElement();
+				if(selected instanceof AspectsContainer){
+					aspectModel.removeAspectsContainer((AspectsContainer) selected);
+				}else{
+					removeAction.setEnabled(false);
+					return;
+				}
+			}
+		};
+		removeAction.setToolTipText("Remove selected folder/JAR");
+		removeAction.setEnabled(false);
+		removeAction.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
+				getImageDescriptor(ISharedImages.IMG_ETOOL_DELETE));
+
+		reloadAction = new Action() {
+			public void run() {
+				Object selected = ((IStructuredSelection)aspViewer.getSelection())
+					.getFirstElement();
+				if(selected instanceof AspectsContainer){
+					AspectsContainer container = (AspectsContainer) selected;
+					String path = container.getPath();
+					String contStr = container.isFolder()? "Folder" : "JAR";
+					int index = aspectModel.removeAspectsContainer(container);
+					try {
+						aspectModel.addAspectsContainer(index, path);
+					} catch (NoAspectsInContainerException e) {
+						MessageDialog.openInformation(getViewSite().getShell(),
+								"Information", contStr + " " + path
+								+ " contains no aspects.");
+					} catch (IOException e) {
+						MessageDialog.openError(getViewSite().getShell(), "Error",
+								"There are some I/O errors while loading " + path + ".");
+					}
+				}else{
+					reloadAction.setEnabled(false);
+					return;
+				}
+			}
+		};
+		reloadAction.setToolTipText("Reload selected folder/JAR");
+		reloadAction.setEnabled(false);
+		reloadAction.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_REFRESH));
+
+		moveDownAction = new Action() {
+			public void run() {
+				Object selected = ((IStructuredSelection) aspViewer
+						.getSelection()).getFirstElement();
+				if (selected instanceof AspectsContainer) {
+					boolean moved = aspectModel.moveContainerDown((AspectsContainer) selected);
+					if(!moved){
+						moveDownAction.setEnabled(false);
+					}
+				} else {
+					moveDownAction.setEnabled(false);
+					return;
+				}
+			}
+		};
+		moveDownAction.setToolTipText("Move folder/JAR down the list");
+		moveDownAction.setEnabled(false);
+		moveDownAction.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_ARROW_DOWN));
+
+		moveUpAction = new Action() {
+			public void run() {
+				Object selected = ((IStructuredSelection) aspViewer
+						.getSelection()).getFirstElement();
+				if (selected instanceof AspectsContainer) {
+					boolean moved = aspectModel.moveContainerUp((AspectsContainer) selected);
+					if(!moved){
+						moveUpAction.setEnabled(false);
+					}
+				} else {
+					moveUpAction.setEnabled(false);
+					return;
+				}
+			}
+		};
+		moveUpAction.setToolTipText("Move folder/JAR up the list");
+		moveUpAction.setEnabled(false);
+		moveUpAction.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_ARROW_UP));
+
+//		optionsAction = new Action() {
+//			public void run() {
+//				
+//			}
+//		};
+//		optionsAction.setToolTipText("Options...");
+//		optionsAction.setEnabled(true);
+//		optionsAction.setImageDescriptor(Activator.getImageDescriptor(Activator.IMG_OPTIONS));
+
+		resetAction = new Action() {
+			public void run() {
+				// Fix potential bug
+				if(joinpViewer.getInput() == null){
+					setEnabled(false);
+					return;
+				}
+				boolean ok = MessageDialog.openConfirm(getViewSite().getShell(), "Confirm", 
+						"Do you really want to reset the joinpoints and " +
+						"unlock target project?");
+				if(ok){
+					joinpViewer.setInput(null);
+					weaveButton.setEnabled(false);
+					resetAction.setEnabled(false);
+					// Unlock target project
+					synchronized (lock) {
+						lock.notify();
+					}
+					projectLabel1.setText(targetProject.getProject().getName());
+					projectLabel2.setText(targetProject.getProject().getName());
+				}
+			}
+		};
+		resetAction.setToolTipText("Reset joinpoints and unlock target project");
+		resetAction.setEnabled(false);
+		resetAction.setImageDescriptor(PlatformUI.getWorkbench().getSharedImages().
+				getImageDescriptor(ISharedImages.IMG_ETOOL_CLEAR));
+
+		// doubleClickAction = new Action() {
+		// public void run() {
+		// ISelection selection = viewer.getSelection();
+		// Object obj = ((IStructuredSelection)selection).getFirstElement();
+		// showMessage("Double-click detected on "+obj.toString());
+		// }
+		// };
+		
+		// Add actions
+		Separator separator = new Separator();
+		manager.add(setProjectAction);
+		manager.add(separator);
+		manager.add(addFolderAction);
+		manager.add(addJarsAction);
+		manager.add(separator);
+		manager.add(moveDownAction);
+		manager.add(moveUpAction);
+		manager.add(removeAction);
+		manager.add(reloadAction);
+		manager.add(separator);
+		manager.add(resetAction);
+//		manager.add(separator);
+//		manager.add(optionsAction);
+	}
 
 	/**
 	 * Passing the focus request to the viewer's control.

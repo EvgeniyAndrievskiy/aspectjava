@@ -14,7 +14,7 @@ class CallConditionClause extends AbstractConditionClause {
 	private ArgsInfo argsInfo;
 	
 	
-	CallConditionClause(String condClause)  throws BadCondClauseFormat{
+	CallConditionClause(String condClause)  throws BadCondClauseExc{
 		super(condClause);
 		methPattern = new MethodPattern(patternStr);	
 		if(argsInfoStr == null){
@@ -92,7 +92,7 @@ class CallConditionClause extends AbstractConditionClause {
 		private MethodArgTypes argTypes;
 		private boolean hasArgTypes;
 		
-		MethodPattern(String pattern) throws BadCondClauseFormat {
+		MethodPattern(String pattern) throws BadCondClauseExc {
 			pattern = pattern.trim();
 			int br = pattern.indexOf('(');
 			if(br < 0){
@@ -104,7 +104,7 @@ class CallConditionClause extends AbstractConditionClause {
 				hasArgTypes = true;
 				// cut surrounding brackets
 				if(pattern.charAt(pattern.length() - 1) != ')'){
-					throw new BadCondClauseFormat(condClauseStr, "Bad format of method pattern: "
+					throw new BadCondClauseExc(condClauseStr, "Bad format of method pattern: "
 							+ pattern);
 				}else{
 					argTypes = new MethodArgTypes(pattern.substring(br + 1,
@@ -136,7 +136,7 @@ class CallConditionClause extends AbstractConditionClause {
 			private boolean hasRetType = false;
 			private EntityWildCard methNameWC;
 			
-			MethodNameFilter(String nf) throws BadCondClauseFormat {
+			MethodNameFilter(String nf) throws BadCondClauseExc {
 				nf = nf.trim();
 				String[] tokens = nf.split("  *");		
 				try {
@@ -144,7 +144,7 @@ class CallConditionClause extends AbstractConditionClause {
 						initAccess(tokens[0]);
 						hasStatic = true;
 						if(!tokens[1].equals("static")){
-							throw new BadCondClauseFormat(condClauseStr, 
+							throw new BadCondClauseExc(condClauseStr, 
 									"Unexpected token instead of \"static\": "
 									 + tokens[1]);
 						}
@@ -216,12 +216,12 @@ class CallConditionClause extends AbstractConditionClause {
 						hasRetType = false;
 					}
 				} catch (PatternSyntaxException	 e) {
-					throw new BadCondClauseFormat(condClauseStr, "Bad format of method name filter: "
+					throw new BadCondClauseExc(condClauseStr, "Bad format of method name filter: "
 							+ nf);
 				}
 			}
 			
-			private void initAccess(String accStr) throws BadCondClauseFormat{
+			private void initAccess(String accStr) throws BadCondClauseExc{
 				hasAccess = true;
 				if(accStr.equals("public")){
 					access = PUBLIC;
@@ -232,7 +232,7 @@ class CallConditionClause extends AbstractConditionClause {
 				}else if(accStr.equals("*")){
 					access = DEFAULT;
 				}else{
-					throw new BadCondClauseFormat(condClauseStr, 
+					throw new BadCondClauseExc(condClauseStr, 
 					"Unexpected access string in method pattern: "
 							+ accStr);
 				}
@@ -273,7 +273,7 @@ class CallConditionClause extends AbstractConditionClause {
 		private class MethodArgTypes{
 			private EntityWildCard[] aTypes;
 			
-			MethodArgTypes(String at) throws BadCondClauseFormat {
+			MethodArgTypes(String at) throws BadCondClauseExc {
 				at = at.trim();
 				String[] argTStrings = at.split(",");
 				
@@ -298,7 +298,7 @@ class CallConditionClause extends AbstractConditionClause {
 								EntityWildCard.TYPE_WC);
 					}
 				} catch (PatternSyntaxException e) {
-					throw new BadCondClauseFormat(condClauseStr, "Bad format of method pattern arg types: "
+					throw new BadCondClauseExc(condClauseStr, "Bad format of method pattern arg types: "
 							+ at);
 				}
 			}

@@ -10,6 +10,8 @@ import org.eclipse.core.runtime.CoreException;
 import org.eclipse.jdt.core.IJavaProject;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jface.dialogs.Dialog;
+import org.eclipse.jface.viewers.DoubleClickEvent;
+import org.eclipse.jface.viewers.IDoubleClickListener;
 import org.eclipse.jface.viewers.IStructuredContentProvider;
 import org.eclipse.jface.viewers.IStructuredSelection;
 import org.eclipse.jface.viewers.LabelProvider;
@@ -65,6 +67,17 @@ class ChooseProjectDialog extends Dialog{
 		projectsViewer = new TableViewer(composite, SWT.BORDER | SWT.SINGLE);
 		projectsViewer.setContentProvider(new ProjectsContentProvider());
 		projectsViewer.setLabelProvider(new ProjectsLabelProvider());
+		projectsViewer.addDoubleClickListener(new IDoubleClickListener() {
+			
+			@Override
+			public void doubleClick(DoubleClickEvent event) {
+				Object sel = ((IStructuredSelection) event.getSelection())
+				.getFirstElement();
+				if(sel instanceof IProject){
+					okPressed();
+				}
+			}
+		});
 		projectsViewer.setInput(ResourcesPlugin.getWorkspace());		
 		GridData gridData2 = new GridData(SWT.FILL, SWT.FILL, true, true);
 		gridData2.verticalIndent = 8;
