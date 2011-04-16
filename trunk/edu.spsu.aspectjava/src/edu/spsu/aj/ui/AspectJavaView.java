@@ -132,7 +132,6 @@ public class AspectJavaView extends ViewPart {
 	private DirectoryDialog folderChooseDialog;
 	private FileDialog jarsChooseDialog;
 	private ChooseProjectDialog projectDialog;
-	private ErrorDialogWithSave errorDialogWithSave;
 	
 	private IJavaProject targetProject = null;
 	private List<File> targProjClassFiles;
@@ -192,7 +191,6 @@ public class AspectJavaView extends ViewPart {
 		projectDialog = new ChooseProjectDialog(getViewSite().getShell(), 
 				"Choose project", "Choose target project for weaving.\n" +
 				"NOTE: you can choose only java project.");
-		errorDialogWithSave = null;
 				
 //		hookContextMenu();
 //		hookDoubleClickAction();
@@ -844,6 +842,32 @@ public class AspectJavaView extends ViewPart {
 	//		getSite().registerContextMenu(menuMgr, joinpViewer);
 	//	}
 	
+	private void openErrorDialogWithSave(String message, List<BadAspect> badAspects){
+		MultiStatus status = new MultiStatus(Activator.PLUGIN_ID, IStatus.OK,
+				"(click 'Details' button for detailed information)", null);
+		for(BadAspect badAspect : badAspects){
+			Exception e = badAspect.getException();
+			String excDesc = null;
+			if(e instanceof BadArgsInRuleExc){
+				BadArgsInRuleExc bE = (BadArgsInRuleExc) e;
+				excDesc = bE.getClause() + " -> " + bE.getRule().getAction()
+					+ " (" + e.getMessage() + ")";
+			}else if(e instanceof BadCondClauseExc){
+				BadCondClauseExc bE = (BadCondClauseExc) e;
+				excDesc = bE.getCondClause() + " ("
+					+ bE.getMessage() + ")";
+			}
+			MultiStatus status2 = new MultiStatus(Activator.PLUGIN_ID, IStatus.OK,
+					badAspect.getClassFilePath() + ':', null);
+			Status status3 = new Status(IStatus.ERROR, Activator.PLUGIN_ID,
+					excDesc);
+			status2.add(status3);
+			status.add(status2);
+		}
+		ErrorDialogWithSave errorDialogWithSave = new ErrorDialogWithSave(getViewSite().getShell(), message, status);
+		errorDialogWithSave.open();
+	}
+	
 	private void fillLocalToolBar(IToolBarManager manager) {
 		// Make actions
 		setProjectAction = new Action(){
@@ -890,43 +914,23 @@ public class AspectJavaView extends ViewPart {
 							+ " is already added.");
 						}
 						if(! badAspects.isEmpty()){
-							MultiStatus status = new MultiStatus(Activator.PLUGIN_ID, IStatus.OK,
-									"(click 'Details' button for detailed information)", null);
-							for(BadAspect badAspect : badAspects){
-								Exception e = badAspect.getException();
-								String excDesc = null;
-								if(e instanceof BadArgsInRuleExc){
-									BadArgsInRuleExc bE = (BadArgsInRuleExc) e;
-									excDesc = bE.getClause() + " -> " + bE.getRule().getAction()
-										+ " (" + e.getMessage() + ")";
-								}else if(e instanceof BadCondClauseExc){
-									BadCondClauseExc bE = (BadCondClauseExc) e;
-									excDesc = bE.getCondClause() + " ("
-										+ bE.getMessage() + ")";
-								}
-								Status status2 = new Status(IStatus.ERROR, 
-										Activator.PLUGIN_ID, badAspect.getClassFilePath()
-										+ ": \n\t" + excDesc);
-								status.add(status2);
-							}
-//							if(errorDialogWithSave == null){
-								errorDialogWithSave = new ErrorDialogWithSave(getViewSite().getShell(), "Some aspects are" +
-								" rejected due to bad format.", status);
-//							}else{
-//								errorDialogWithSave.setStatus(status);
-//								errorDialogWithSave.setMessage("Some aspects are" +
-//									" rejected due to bad format.");
-//							}
-							errorDialogWithSave.open();
+							openErrorDialogWithSave("Some aspects are" +
+									" rejected due to bad format.", badAspects);
 						}
 					} catch (IOException e) {
 						MessageDialog.openError(getViewSite()
 								.getShell(), "Error",
 								"There are some I/O errors while loading " + str + ".");
 					} catch (NoAspectsInContainerException e) {
-						MessageDialog.openInformation(getViewSite().getShell(),
-						"Information", "Folder " + str
-						+ " contains no aspects.");
+						if(e.getBadAspects().isEmpty()){
+							MessageDialog.openInformation(getViewSite().getShell(),
+							"Information", "Folder " + str
+							+ " contains no aspects.");
+						}else{
+							openErrorDialogWithSave("Folder " + str
+									+ " contains no aspects.\nSome aspects were" +
+									" rejected due to bad format.", e.getBadAspects());
+						}
 					}
 				}
 			}
@@ -954,19 +958,22 @@ public class AspectJavaView extends ViewPart {
 								+ " is already added.");
 							}
 							if(! badAspects.isEmpty()){
-								MessageDialog.openInformation(getViewSite().getShell(),
-										"Information", "There are aspects that were" +
-												" rejected due to bad format. See " +
-												"'Problems' view for details.");
-								
+								openErrorDialogWithSave("Some aspects are" +
+										" rejected due to bad format.", badAspects);
 							}
 						} catch (IOException e) {
 							MessageDialog.openError(getViewSite().getShell(), "Error",
 									"There are some I/O errors while loading " + path + ".");
 						} catch (NoAspectsInContainerException e) {
-							MessageDialog.openInformation(getViewSite().getShell(),
-							"Information", "JAR " + path
-							+ " contains no aspects.");
+							if(e.getBadAspects().isEmpty()){
+								MessageDialog.openInformation(getViewSite().getShell(),
+								"Information", "JAR " + str
+								+ " contains no aspects.");
+							}else{
+								openErrorDialogWithSave("JAR " + str
+										+ " contains no aspects.\nSome aspects were" +
+										" rejected due to bad format.", e.getBadAspects());
+							}
 						}
 					}
 				}
@@ -1001,14 +1008,24 @@ public class AspectJavaView extends ViewPart {
 				if(selected instanceof AspectsContainer){
 					AspectsContainer container = (AspectsContainer) selected;
 					String path = container.getPath();
-					String contStr = container.isFolder()? "Folder" : "JAR";
 					int index = aspectModel.removeAspectsContainer(container);
 					try {
-						aspectModel.addAspectsContainer(index, path);
+						List<BadAspect> badAspects = aspectModel.addAspectsContainer(index, path);
+						if(! badAspects.isEmpty()){
+							openErrorDialogWithSave("Some aspects are" +
+									" rejected due to bad format.", badAspects);
+						}
 					} catch (NoAspectsInContainerException e) {
-						MessageDialog.openInformation(getViewSite().getShell(),
-								"Information", contStr + " " + path
-								+ " contains no aspects.");
+						String contStr = container.isFolder()? "Folder" : "JAR";
+						if(e.getBadAspects().isEmpty()){
+							MessageDialog.openInformation(getViewSite().getShell(),
+									"Information", contStr + " " + path
+									+ " contains no aspects.");
+						}else{
+							openErrorDialogWithSave(contStr + " " + path
+									+ " contains no aspects.\nSome aspects were" +
+									" rejected due to bad format.", e.getBadAspects());
+						}	
 					} catch (IOException e) {
 						MessageDialog.openError(getViewSite().getShell(), "Error",
 								"There are some I/O errors while loading " + path + ".");

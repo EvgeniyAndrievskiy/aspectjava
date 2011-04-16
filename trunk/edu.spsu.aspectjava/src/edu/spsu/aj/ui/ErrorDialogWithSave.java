@@ -52,6 +52,7 @@ class ErrorDialogWithSave extends ErrorDialog{
 					FileWriter w = new FileWriter(str);
 					for(IStatus s : status.getChildren()){
 						w.write(s.getMessage() + '\n');
+						w.write("\t" + s.getChildren()[0].getMessage() + '\n');
 					}
 					w.close();
 				} catch (IOException e) {
