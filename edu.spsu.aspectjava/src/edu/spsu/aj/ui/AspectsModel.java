@@ -89,7 +89,7 @@ class AspectsModel{
 		if(container != null){
 			aspectsContainers.add(container);
 		}else{
-			throw new NoAspectsInContainerException(containerPath);
+			throw new NoAspectsInContainerException(containerPath, badAspects);
 		}
 
 		for(AspectsModelListener listener:listeners){
@@ -111,7 +111,7 @@ class AspectsModel{
 		if(container != null){
 			aspectsContainers.add(index, container);
 		}else{
-			throw new NoAspectsInContainerException(containerPath);
+			throw new NoAspectsInContainerException(containerPath, badAspects);
 		}
 		for(AspectsModelListener listener:listeners){
 			listener.aspectsContainerAdded(index, container);
