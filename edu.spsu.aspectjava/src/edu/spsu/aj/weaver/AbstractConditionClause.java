@@ -43,38 +43,49 @@ public abstract class AbstractConditionClause {
 		String s = condClause.substring(ws + 1).trim();
 		// now 's' contains all after Context; it starts with no whitespace
 
-		ws = s.indexOf(' ');
+		int ws1 = s.indexOf(' ');
 		// there must be at least 1 whitespace between JoinPointKind & Pattern 
-		if(ws < 0){	
+		if(ws1 < 0){	
 			throw new BadCondClauseExc(condClause);
 		}
-		String string = s.substring(ws + 1).trim();
+		String string = s.substring(ws1 + 1).trim();
 		// now 'string' contains Pattern + rest
 
-		ws = string.indexOf("&&");
-		if(ws < 0){
+		int ws2 = string.indexOf("&&");
+		if(ws2 < 0){
 			patternStr = string;
 		}else{
-			patternStr = string.substring(0, ws).trim();
+			patternStr = string.substring(0, ws2).trim();
 		}
 		
 		/** ArgsInfo & Restrictions **/
-		if(ws >= 0) {
-			string = string.substring(ws + 2).trim();
+		if(ws2 >= 0) {
+			string = string.substring(ws2 + 2).trim();
 			// now 'string' contains ArgsInfo and (or) Restrictions
 			
 			if(string.startsWith("%args")){
-				ws = string.indexOf("&&");
-				if(ws < 0) {
+				int ws3 = string.indexOf("&&");
+				if(ws3 < 0) {
 					argsInfoStr = string;
 				}else{
-					argsInfoStr = string.substring(0, ws).trim();
+					argsInfoStr = string.substring(0, ws3).trim();
 					restrictions = new LinkedList<Restriction>();
-					String[] restrs = (string.substring(ws + 2)).split("&&");
+					String[] restrs = (string.substring(ws3 + 2)).split("&&");
 					for(String res : restrs){
 						restrictions.add(new Restriction(res));
 					}
 				}
+			}else if(string.startsWith("%arg")){
+				String ais = null;
+				int ws4 = string.indexOf("&&");
+				if(ws4 < 0) {
+					ais = string;
+				}else{
+					ais = string.substring(0, ws4).trim();
+				}
+				throw new BadCondClauseExc(condClauseStr, "Bad format of" +
+						" args info, it should start with '%args': "
+						+ ais);
 			}else {
 				restrictions = new LinkedList<Restriction>();
 				String[] restrs = string.split("&&");

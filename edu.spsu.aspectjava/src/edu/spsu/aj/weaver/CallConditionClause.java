@@ -42,27 +42,13 @@ class CallConditionClause extends AbstractConditionClause {
 	}
 
 	private class MethodArgsInfo extends ArgsInfo{
-		private int[] argsInfo;
+		public static final String FORMAT = 
+			"%args '(' arg'[' index ']' [ ',' arg'[' index ']' ]* ')'";
+		private int[] info;
 		private int argsCount;
 		
-		MethodArgsInfo(String argsInfoStr) {
-			super(argsInfoStr);
-			
-			// Special case %args(..), that means all arguments from target method are passed into action.
-			// This case is equivalent to argsInfo.getArgsCount() == -1 and/or argsInfo.getInfo() == null.
-			// It's supposed to be filled by actual data on rule creating stage when action is known.
-			if(argsInfoStr.contains("..")){
-				argsInfo = null;
-				argsCount = -1;
-			}else{
-				// TODO: modify code below to parse argsInfoStr (with syntax error checking).
-				String[] sa = argsInfoStr.split("\\D+");
-				argsInfo = new int[sa.length - 1];
-				for(int i = 1; i < sa.length; i++){
-					argsInfo[i - 1] = Integer.parseInt(sa[i]);
-				}
-				argsCount = argsInfo.length;
-			}
+		MethodArgsInfo(String str) throws BadCondClauseExc {
+			super(str);	
 		}
 
 		@Override
@@ -72,7 +58,7 @@ class CallConditionClause extends AbstractConditionClause {
 
 		@Override
 		Object getInfo() {
-			return argsInfo;
+			return info;
 		}
 
 		@Override
@@ -82,7 +68,57 @@ class CallConditionClause extends AbstractConditionClause {
 
 		@Override
 		void setInfo(Object info) {
-			this.argsInfo = (int[]) info;
+			this.info = (int[]) info;
+		}
+
+		@Override
+		protected void parseArgsInfoString(String str) throws BadCondClauseExc {
+			
+			if(! toString.startsWith("%args")){
+				throw new BadCondClauseExc(condClauseStr, "Bad format of" +
+						" args info, it should start with '%args': "
+						+ toString);
+			}
+			String str1 = toString.substring(5).trim();
+			// str1 is supposed to be in the format of '( <arg-indices> )'
+			if(! str1.startsWith("(")){
+				throw new BadCondClauseExc(condClauseStr, "Bad format of" +
+						" args info, '(' is missed: " + toString);
+			}
+			if(! str1.endsWith(")")){
+				throw new BadCondClauseExc(condClauseStr, "Bad format of" +
+						" args info, ')' is missed: " + toString);
+			}
+			String str2 = str1.substring(1, str1.length() - 1).trim();
+			// str2 contains only arg-indices
+			
+			// Special case %args (..), that means all arguments from target method are passed into action.
+			// This case is equivalent to argsInfo.getArgsCount() == -1 and/or argsInfo.getInfo() == null.
+			// It's supposed to be filled by actual data on rule creating stage when action is known.
+			if(str2.equals("..")){
+				info = null;
+				argsCount = -1;
+				return;
+			}
+			String[] sa = str2.split(",");
+			// sa contains strings in the format of ' arg[ <index> ] ' 
+			info = new int[sa.length];
+			for(int i = 0; i < sa.length; i++){
+				String s = sa[i].trim();
+				if(! s.startsWith("arg[") | ! s.endsWith("]")){
+					throw new BadCondClauseExc(condClauseStr, "Bad arg-index format in" +
+							" args info, 'arg[ <index> ]' expected: " + s);
+				}
+				String is = s.substring(4, s.length() - 1).trim();
+				try {
+					info[i] = Integer.parseInt(is);
+				} catch (NumberFormatException e) {
+					throw new BadCondClauseExc(condClauseStr, "Bad arg-index format in" +
+							" args info, 'arg[ <index> ]' expected: " + s);
+				}
+			}
+			argsCount = info.length;
+			
 		}
 	
 	}
