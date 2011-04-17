@@ -1,12 +1,15 @@
 package edu.spsu.aj.weaver;
 
 abstract class ArgsInfo {
-	// String to parse
-	protected String argsInfoStr;
+	// String presentation
+	protected String toString;
 	
-	ArgsInfo(String argsInfo) {
-		this.argsInfoStr = argsInfo;
+	ArgsInfo(String argsInfo) throws BadCondClauseExc {
+		this.toString = argsInfo.trim();
+		parseArgsInfoString(toString);
 	}
+	
+	abstract protected void parseArgsInfoString(String str) throws BadCondClauseExc;
 	
 	// Special case %args(..) is equivalent to getArgsCount() == -1.
 	// It means that all (possible) arguments from target instruction are passed into action.
@@ -23,7 +26,7 @@ abstract class ArgsInfo {
 	abstract  void setInfo(Object info);
 	
 	public String toString(){
-		return argsInfoStr;
+		return toString;
 	}
 
 }

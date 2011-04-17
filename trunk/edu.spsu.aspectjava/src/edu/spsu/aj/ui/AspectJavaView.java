@@ -58,10 +58,8 @@ import org.eclipse.swt.layout.RowLayout;
 import org.eclipse.jface.action.Action;
 import org.eclipse.jface.action.IToolBarManager;
 import org.eclipse.jface.action.Separator;
-import org.eclipse.jface.dialogs.ErrorDialog;
 import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
-import org.eclipse.core.resources.IMarker;
 import org.eclipse.core.resources.IResourceChangeEvent;
 import org.eclipse.core.resources.IResourceChangeListener;
 import org.eclipse.core.resources.IWorkspace;
@@ -912,6 +910,7 @@ public class AspectJavaView extends ViewPart {
 							MessageDialog.openInformation(getViewSite().getShell(),
 							"Information", "Folder " + str
 							+ " is already added.");
+							return;
 						}
 						if(! badAspects.isEmpty()){
 							openErrorDialogWithSave("Some aspects are" +
@@ -928,7 +927,7 @@ public class AspectJavaView extends ViewPart {
 							+ " contains no aspects.");
 						}else{
 							openErrorDialogWithSave("Folder " + str
-									+ " contains no aspects.\nSome aspects were" +
+									+ " contains aspects, but they were" +
 									" rejected due to bad format.", e.getBadAspects());
 						}
 					}
@@ -956,6 +955,7 @@ public class AspectJavaView extends ViewPart {
 								MessageDialog.openInformation(getViewSite().getShell(),
 								"Information", "JAR " + path
 								+ " is already added.");
+								return;
 							}
 							if(! badAspects.isEmpty()){
 								openErrorDialogWithSave("Some aspects are" +
@@ -971,7 +971,7 @@ public class AspectJavaView extends ViewPart {
 								+ " contains no aspects.");
 							}else{
 								openErrorDialogWithSave("JAR " + str
-										+ " contains no aspects.\nSome aspects were" +
+										+ " contains aspects, but they were" +
 										" rejected due to bad format.", e.getBadAspects());
 							}
 						}
@@ -1023,7 +1023,7 @@ public class AspectJavaView extends ViewPart {
 									+ " contains no aspects.");
 						}else{
 							openErrorDialogWithSave(contStr + " " + path
-									+ " contains no aspects.\nSome aspects were" +
+									+ " contains aspects, but they were" +
 									" rejected due to bad format.", e.getBadAspects());
 						}	
 					} catch (IOException e) {
