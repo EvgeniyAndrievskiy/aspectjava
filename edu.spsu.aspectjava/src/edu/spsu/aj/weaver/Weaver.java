@@ -6,16 +6,18 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.InsnList;
 import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.LdcInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.MultiANewArrayInsnNode;
 import org.objectweb.asm.tree.VarInsnNode;
+import static org.objectweb.asm.Opcodes.*;
 
 import edu.spsu.aj.weaver.AbstractConditionClause.Context;
 
@@ -26,108 +28,146 @@ public class Weaver{
 	
 	static{
 		// Constants
-		for(int i = Opcodes.ACONST_NULL; i <= Opcodes.LDC; i++) {
+		for(int i = ACONST_NULL; i <= LDC; i++) {
 			instrSN[i] = 1;
 		}
 		// xLOAD
-		for(int i = Opcodes.ILOAD; i <= Opcodes.ALOAD; i++) {
+		for(int i = ILOAD; i <= ALOAD; i++) {
 			instrSN[i] = 1;
 		}
 		// xALOAD
-		for(int i = Opcodes.IALOAD; i <= Opcodes.SALOAD; i++) {
+		for(int i = IALOAD; i <= SALOAD; i++) {
 			instrSN[i] = -1;
 		}
 		// xSTORE
-		for(int i = Opcodes.ISTORE; i <= Opcodes.ASTORE; i++) {
+		for(int i = ISTORE; i <= ASTORE; i++) {
 			instrSN[i] = -1;
 		}
 		// xASTORE
-		for(int i = Opcodes.IASTORE; i <= Opcodes.SASTORE; i++) {
+		for(int i = IASTORE; i <= SASTORE; i++) {
 			instrSN[i] = -3;
 		}
 		// Stack
-		// TODO: for long & double
-		instrSN[Opcodes.POP] = -1;
-		instrSN[Opcodes.POP2] = -2;
-		instrSN[Opcodes.DUP] = 1;
-		instrSN[Opcodes.DUP_X1] = 1;
-		instrSN[Opcodes.DUP_X2] = 1;
-		instrSN[Opcodes.DUP2] = 2;
-		instrSN[Opcodes.DUP2_X1] = 2;
-		instrSN[Opcodes.DUP2_X2] = 2;
-		instrSN[Opcodes.SWAP] = 0;
+		// By default POP2 & DUP2x use +/-2 values (1word case).
+		// Two-word cases are considered on-site in passValue().
+		instrSN[POP] = -1;
+		instrSN[POP2] = -2; 
+		instrSN[DUP] = 1;
+		instrSN[DUP_X1] = 1;
+		instrSN[DUP_X2] = 1;
+		instrSN[DUP2] = 2; 
+		instrSN[DUP2_X1] = 2; 
+		instrSN[DUP2_X2] = 2; 
+		instrSN[SWAP] = 0;
 		
 		// Arithmetic and logic 1
-		for(int i = Opcodes.IADD; i <= Opcodes.DREM; i++) {
+		for(int i = IADD; i <= DREM; i++) {
 			instrSN[i] = -1;
 		}
-		for(int i = Opcodes.INEG; i <= Opcodes.DNEG; i++) {
+		for(int i = INEG; i <= DNEG; i++) {
 			instrSN[i] = 0;
 		}
-		for(int i = Opcodes.ISHL; i <= Opcodes.LXOR; i++) {
+		for(int i = ISHL; i <= LXOR; i++) {
 			instrSN[i] = -1;
 		}
 		
-		instrSN[Opcodes.IINC] = 0;
+		instrSN[IINC] = 0;
 		
 		// Casts
-		for(int i = Opcodes.I2L; i <= Opcodes.I2S; i++) {
+		for(int i = I2L; i <= I2S; i++) {
 			instrSN[i] = 0;
 		}
-		instrSN[Opcodes.CHECKCAST] = 0;
+		instrSN[CHECKCAST] = 0;
 		
 		// Arithmetic and logic 2
-		for(int i = Opcodes.LCMP; i <= Opcodes.DCMPG; i++) {
+		for(int i = LCMP; i <= DCMPG; i++) {
 			instrSN[i] = -1;
 		}
 		// Jumps
-		for(int i = Opcodes.IFEQ; i <= Opcodes.IFLE; i++) {
+		for(int i = IFEQ; i <= IFLE; i++) {
 			instrSN[i] = -1;
 		}
-		for(int i = Opcodes.IF_ICMPEQ; i <= Opcodes.IF_ACMPNE; i++) {
+		for(int i = IF_ICMPEQ; i <= IF_ACMPNE; i++) {
 			instrSN[i] = -2;
 		}
-		instrSN[Opcodes.GOTO] = 0;
-		instrSN[Opcodes.JSR] = 1;
-		instrSN[Opcodes.RET] = 0;
-		instrSN[Opcodes.TABLESWITCH] = -1;
-		instrSN[Opcodes.LOOKUPSWITCH] = -1;
-		instrSN[Opcodes.IFNULL] = -1;
-		instrSN[Opcodes.IFNONNULL] = -1;
+		instrSN[GOTO] = 0;
+		instrSN[JSR] = 1;
+		instrSN[RET] = 0;
+		instrSN[TABLESWITCH] = -1;
+		instrSN[LOOKUPSWITCH] = -1;
+		instrSN[IFNULL] = -1;
+		instrSN[IFNONNULL] = -1;
 		
 		// Return
-		for(int i = Opcodes.IRETURN; i <= Opcodes.ARETURN; i++) {
+		for(int i = IRETURN; i <= ARETURN; i++) {
 			instrSN[i] = -1;
 		}
-		instrSN[Opcodes.RETURN] = 0;
-		instrSN[Opcodes.ATHROW] = -1;
+		instrSN[RETURN] = 0;
+		instrSN[ATHROW] = -1;
 		
 		// Fields, objects
-		instrSN[Opcodes.GETSTATIC] = 1;
-		instrSN[Opcodes.PUTSTATIC] = -1;
-		instrSN[Opcodes.GETFIELD] = 0;
-		instrSN[Opcodes.PUTFIELD] = -2;
-		instrSN[Opcodes.NEW] = 1;
-		instrSN[Opcodes.INSTANCEOF] = 0;
-		instrSN[Opcodes.MONITORENTER] = -1;
-		instrSN[Opcodes.MONITOREXIT] = -1;
+		instrSN[GETSTATIC] = 1;
+		instrSN[PUTSTATIC] = -1;
+		instrSN[GETFIELD] = 0;
+		instrSN[PUTFIELD] = -2;
+		instrSN[NEW] = 1;
+		instrSN[INSTANCEOF] = 0;
+		instrSN[MONITORENTER] = -1;
+		instrSN[MONITOREXIT] = -1;
 		
 		// Arrays
-		instrSN[Opcodes.NEWARRAY] = 0;
-		instrSN[Opcodes.ANEWARRAY] = 0;
-		instrSN[Opcodes.ARRAYLENGTH] = 0;
+		instrSN[NEWARRAY] = 0;
+		instrSN[ANEWARRAY] = 0;
+		instrSN[ARRAYLENGTH] = 0;
 		// Need sub array dimension
-		instrSN[Opcodes.MULTIANEWARRAY] = 1;
+		instrSN[MULTIANEWARRAY] = 1;
 
 		
 		// Methods
 		// Need sub arguments number
 		// Need sub 1 in case of void ret value 
-		instrSN[Opcodes.INVOKEVIRTUAL] = 0;
-		instrSN[Opcodes.INVOKESPECIAL] = 0;
-		instrSN[Opcodes.INVOKESTATIC] = 1;
-		instrSN[Opcodes.INVOKEINTERFACE] = 0;
+		instrSN[INVOKEVIRTUAL] = 0;
+		instrSN[INVOKESPECIAL] = 0;
+		instrSN[INVOKESTATIC] = 1;
+		instrSN[INVOKEINTERFACE] = 0;
 
+	}
+	
+	// Instructions that push on stack two-word values
+	private static List<Integer> twoWordsOpcs = new LinkedList<Integer>();
+	static{
+		twoWordsOpcs.add(LLOAD);
+		twoWordsOpcs.add(DLOAD);
+		twoWordsOpcs.add(LCONST_0);
+		twoWordsOpcs.add(LCONST_1);
+		twoWordsOpcs.add(DCONST_0);
+		twoWordsOpcs.add(DCONST_1);
+		twoWordsOpcs.add(LADD);
+		twoWordsOpcs.add(DADD);
+		twoWordsOpcs.add(LSUB);
+		twoWordsOpcs.add(DSUB);
+		twoWordsOpcs.add(LMUL);
+		twoWordsOpcs.add(DMUL);
+		twoWordsOpcs.add(LDIV);
+		twoWordsOpcs.add(DDIV);
+		twoWordsOpcs.add(LREM);
+		twoWordsOpcs.add(DREM);
+		twoWordsOpcs.add(LNEG);
+		twoWordsOpcs.add(DNEG);
+		twoWordsOpcs.add(LSHL);
+		twoWordsOpcs.add(LSHR);
+		twoWordsOpcs.add(LUSHR);
+		twoWordsOpcs.add(LAND);
+		twoWordsOpcs.add(LOR);
+		twoWordsOpcs.add(LXOR);
+		twoWordsOpcs.add(I2L);
+		twoWordsOpcs.add(F2L);
+		twoWordsOpcs.add(D2L);
+		twoWordsOpcs.add(I2D);
+		twoWordsOpcs.add(L2D);
+		twoWordsOpcs.add(F2D);
+		twoWordsOpcs.add(LALOAD);
+		twoWordsOpcs.add(DALOAD);
 	}
 	
 	public List<Joinpoint> findJoinpoints(List<ClassNode> targetApp, List<Aspect> aspects) {
@@ -221,58 +261,58 @@ public class Weaver{
 //		int opcode = arg.getOpcode();
 //		/**  SET OF SPECIAL CASES 'method1(ENTITY = method2());'  **/
 //		// Case such as 'method1(local = method2());'
-//		if(Opcodes.ISTORE <= opcode && opcode <= Opcodes.ASTORE) {
+//		if(ISTORE <= opcode && opcode <= ASTORE) {
 //			// Pass xSTORE, DUP and go recurrence
 //			return passValue(arg.getPrevious().getPrevious());
 //		}
 //		// Case such as 'method1(a[i] = method2());'
-//		if(Opcodes.IASTORE <= opcode && opcode <= Opcodes.SASTORE) {
+//		if(IASTORE <= opcode && opcode <= SASTORE) {
 //			// Pass xASTORE, DUP and go recurrence
 //			AbstractInsnNode node =  passValue(arg.getPrevious().getPrevious());
 //			return passValue(passValue(node));
 //		}
 //		// Case such as 'method1(o.f = method2());'
-//		if(opcode == Opcodes.PUTFIELD) {
+//		if(opcode == PUTFIELD) {
 //			// Pass PUTFIELD, DUP and go recurrence
 //			AbstractInsnNode node =  passValue(arg.getPrevious().getPrevious());
 //			return passValue(node);
 //		}
 //		// Case such as 'method1(Class1.sf = method2());'
-//		if(opcode == Opcodes.PUTSTATIC) {
+//		if(opcode == PUTSTATIC) {
 //			// Pass PUTSTATIC, DUP and go recurrence
 //			return passValue(arg.getPrevious().getPrevious());
 //		}
 //		/**   **/
 //		
 //		/** CASTS & IINC instr **/
-//		if(Opcodes.I2L <= opcode && opcode <= Opcodes.I2S || opcode == Opcodes.CHECKCAST) { 
+//		if(I2L <= opcode && opcode <= I2S || opcode == CHECKCAST) { 
 //			return passValue(arg.getPrevious());
 //		}
-//		if(opcode == Opcodes.IINC) {
+//		if(opcode == IINC) {
 //			return passValue((arg.getPrevious()));
 //		}
-//		if(Opcodes.ILOAD <= opcode && opcode <= Opcodes.ALOAD) {
+//		if(ILOAD <= opcode && opcode <= ALOAD) {
 //			return arg.getPrevious();
 //		}
-//		if(Opcodes.IALOAD <= opcode && opcode <= Opcodes.SALOAD) {
+//		if(IALOAD <= opcode && opcode <= SALOAD) {
 //			return passValue(passValue(arg.getPrevious()));
 //		}
-//		if(opcode == Opcodes.GETSTATIC) {
+//		if(opcode == GETSTATIC) {
 //			return arg.getPrevious();
 //		}
-//		if(opcode == Opcodes.GETFIELD) {
+//		if(opcode == GETFIELD) {
 //			return passValue(arg.getPrevious());
 //		}
 //		// Constants
-//		if(Opcodes.ACONST_NULL <= opcode && opcode <= Opcodes.DCONST_1
-//				|| opcode == Opcodes.BIPUSH || opcode == Opcodes.SIPUSH
-//				|| opcode == Opcodes.LDC) {
+//		if(ACONST_NULL <= opcode && opcode <= DCONST_1
+//				|| opcode == BIPUSH || opcode == SIPUSH
+//				|| opcode == LDC) {
 //			return arg.getPrevious();
 //		}
 //		
 //		/** Methods **/
 //		
-//		if(opcode == Opcodes.INVOKESTATIC) {
+//		if(opcode == INVOKESTATIC) {
 //			int argCount = Type.getArgumentTypes(((MethodInsnNode) arg).desc).length;
 //			AbstractInsnNode instr = arg;
 //			for(int i = 0; i < argCount - 1; i++) {
@@ -303,7 +343,76 @@ public class Weaver{
 				current = current.getPrevious();
 				continue;
 			}
-			i -= instrSN[current.getOpcode()];
+			int opc = current.getOpcode();
+			i -= instrSN[opc];
+			
+			// Consider pop2, dup2x cases with 2word value (instrSN = +/-1)
+			if(opc == POP2 || opc == DUP2 || opc == DUP2_X1 || opc == DUP2_X2){
+				// *ABSOLUTE CASES*
+				AbstractInsnNode prev = current.getPrevious();
+				int op = prev.getOpcode();
+				if(twoWordsOpcs.contains(op)){
+					if(opc == POP2){
+						i--;
+					}else{
+						i++;
+					}
+				}else if(prev.getType() == AbstractInsnNode.METHOD_INSN){
+					Type retType = Type.getReturnType(((MethodInsnNode) prev).desc);
+					if(retType.getSort() == Type.LONG || retType.getSort() == Type.DOUBLE){
+						if(opc == POP2){
+							i--;
+						}else{
+							i++;
+						}
+					}
+				}else if(op == GETFIELD | op == GETSTATIC){
+					Type type = Type.getType(((FieldInsnNode) prev).desc);
+					if(type.getSort() == Type.LONG || type.getSort() == Type.DOUBLE){
+						if(opc == POP2){
+							i--;
+						}else{
+							i++;
+						}
+					}
+				}else if(op == LDC){
+					LdcInsnNode ldci = (LdcInsnNode) prev;
+					if(ldci.cst instanceof Long || ldci.cst instanceof Double){
+						if(opc == POP2){
+							i--;
+						}else{
+							i++;
+						}
+					}else if(ldci.cst instanceof Type){
+						Type t = (Type) ldci.cst;
+						if(t.getSort() == Type.LONG || t.getSort() == Type.DOUBLE){
+							if(opc == POP2){
+								i--;
+							}else{
+								i++;
+							}
+						}
+					}
+				}
+				// *Statistical particular cases*
+				else if(op == PUTSTATIC || op == PUTFIELD){
+					Type type = Type.getType(((FieldInsnNode) prev).desc);
+					if(type.getSort() == Type.LONG || type.getSort() == Type.DOUBLE){
+						// Suppose multi assign case for long/double
+						if(opc == DUP2 || opc == DUP2_X1){
+							i++;
+						}
+					}
+				}else if(op == LSTORE || op == DSTORE){
+					// Suppose --/++ on long/double in multi assign case 
+					if(opc == DUP2 || opc == DUP2_X1){
+						i++;
+					}
+				}
+				
+				// TODO: IINC case ? - practice shows that iinc isn't used for
+				// long & double
+			}
 			if(current.getType() == AbstractInsnNode.METHOD_INSN) {
 				MethodInsnNode mInstr = (MethodInsnNode) current;
 				i += Type.getArgumentTypes(mInstr.desc).length;
@@ -331,44 +440,44 @@ public class Weaver{
 			int retType = Type.getReturnType(((MethodInsnNode) instr).desc).getSort();
 			InsnNode pop;
 			if(retType == Type.LONG || retType == Type.DOUBLE){
-				pop = new InsnNode(Opcodes.POP2);
+				pop = new InsnNode(POP2);
 			}else{
-				pop = new InsnNode(Opcodes.POP);
+				pop = new InsnNode(POP);
 			}
 			method.instructions.insert(instr, pop);
-		}else if(Opcodes.ILOAD <= opcode && opcode <= Opcodes.ALOAD) {
+		}else if(ILOAD <= opcode && opcode <= ALOAD) {
 			method.instructions.remove(instr);
-		}else if(opcode == Opcodes.IINC) {
+		}else if(opcode == IINC) {
 			disposeValue(instr.getPrevious(), method);
-		}else if(Opcodes.I2L <= opcode && opcode <= Opcodes.I2S || opcode == Opcodes.CHECKCAST) { 
+		}else if(I2L <= opcode && opcode <= I2S || opcode == CHECKCAST) { 
 			AbstractInsnNode prev = instr.getPrevious();
 			method.instructions.remove(instr);
 			disposeValue(prev, method);
-		}else if(Opcodes.ACONST_NULL <= opcode && opcode <= Opcodes.DCONST_1
-				|| opcode == Opcodes.BIPUSH || opcode == Opcodes.SIPUSH
-				|| opcode == Opcodes.LDC) {
+		}else if(ACONST_NULL <= opcode && opcode <= DCONST_1
+				|| opcode == BIPUSH || opcode == SIPUSH
+				|| opcode == LDC) {
 			method.instructions.remove(instr);
-		}else if(Opcodes.IALOAD <= opcode && opcode <= Opcodes.SALOAD) {
+		}else if(IALOAD <= opcode && opcode <= SALOAD) {
 			// We need remove xALOAD instr & dispose two values: for array index & for array object
 			AbstractInsnNode indexValue = instr.getPrevious();
 			method.instructions.remove(instr);
 			AbstractInsnNode objectValue = passValue(indexValue);
 			disposeValue(indexValue, method);
 			disposeValue(objectValue, method);
-		}else if(opcode == Opcodes.GETSTATIC) {
+		}else if(opcode == GETSTATIC) {
 			method.instructions.remove(instr);
-		}else if(opcode == Opcodes.GETFIELD) {
+		}else if(opcode == GETFIELD) {
 			AbstractInsnNode objectValue = instr.getPrevious();
 			method.instructions.remove(instr);
 			disposeValue(objectValue, method);
-		}else if(Opcodes.IADD <= opcode && opcode <= Opcodes.DREM ||
-				Opcodes.ISHL<= opcode && opcode <= Opcodes.LXOR) {
+		}else if(IADD <= opcode && opcode <= DREM ||
+				ISHL<= opcode && opcode <= LXOR) {
 			AbstractInsnNode argValue1 = instr.getPrevious();
 			method.instructions.remove(instr);
 			AbstractInsnNode argValue2 = passValue(argValue1);
 			disposeValue(argValue1, method);
 			disposeValue(argValue2, method);
-		}else if(Opcodes.INEG <= opcode && opcode <= Opcodes.DNEG) {
+		}else if(INEG <= opcode && opcode <= DNEG) {
 			AbstractInsnNode argValue = instr.getPrevious();
 			method.instructions.remove(instr);
 			disposeValue(argValue, method);
@@ -402,7 +511,7 @@ public class Weaver{
 			String owner = jPoint.getAspect().getName().replace('.', '/');
 			String name = rule.getAction().getName();
 			String desc = rule.getAction().getDescriptor();
-			MethodInsnNode actionCall = new MethodInsnNode(Opcodes.INVOKESTATIC, owner, name, desc);
+			MethodInsnNode actionCall = new MethodInsnNode(INVOKESTATIC, owner, name, desc);
 			
 			Context context = jPoint.getClause().getContext();	
 			
@@ -415,9 +524,9 @@ public class Weaver{
 						InsnNode pop;
 						if(Type.getReturnType(desc).getSort() == Type.LONG ||
 								Type.getReturnType(desc).getSort() == Type.DOUBLE){
-							pop = new InsnNode(Opcodes.POP2);
+							pop = new InsnNode(POP2);
 						}else{
-							pop = new InsnNode(Opcodes.POP);
+							pop = new InsnNode(POP);
 						}
 						method.instructions.insert(actionCall, pop);
 					}
@@ -428,9 +537,9 @@ public class Weaver{
 						InsnNode pop;
 						if(Type.getReturnType(desc).getSort() == Type.LONG ||
 								Type.getReturnType(desc).getSort() == Type.DOUBLE){
-							pop = new InsnNode(Opcodes.POP2);
+							pop = new InsnNode(POP2);
 						}else{
-							pop = new InsnNode(Opcodes.POP);
+							pop = new InsnNode(POP);
 						}
 						method.instructions.insert(actionCall, pop);
 					}
@@ -442,7 +551,7 @@ public class Weaver{
 						
 //						InsnList instrList = new InsnList();
 //						for(int i = 0; i < Type.getArgumentTypes(mInstr.desc).length; i++){
-//							InsnNode pop = new InsnNode(Opcodes.POP);
+//							InsnNode pop = new InsnNode(POP);
 //							instrList.add(pop);
 //						}
 //						instrList.add(aspectCall);
@@ -457,7 +566,7 @@ public class Weaver{
 						}
 						
 						// For non-static target methods we need to remove target object
-						if(mInstr.getOpcode() != Opcodes.INVOKESTATIC) {
+						if(mInstr.getOpcode() != INVOKESTATIC) {
 							disposeValue(current, method);
 						}
 						method.instructions.insert(instr, actionCall);
@@ -523,9 +632,9 @@ public class Weaver{
 							AbstractInsnNode dupNode;
 							if(targArgTypes[argsInfo[i]].getSort() == Type.LONG
 									|| targArgTypes[argsInfo[i]].getSort() == Type.DOUBLE) {
-								dupNode = new InsnNode(Opcodes.DUP2);
+								dupNode = new InsnNode(DUP2);
 							}else{
-								dupNode = new InsnNode(Opcodes.DUP);
+								dupNode = new InsnNode(DUP);
 							}
 							method.instructions.insert(node1, dupNode);
 							AbstractInsnNode storeNode;
@@ -534,15 +643,15 @@ public class Weaver{
 									|| targArgTypes[argsInfo[i]].getSort() == Type.CHAR
 									|| targArgTypes[argsInfo[i]].getSort() == Type.BYTE
 									|| targArgTypes[argsInfo[i]].getSort() == Type.SHORT) {
-								storeNode = new VarInsnNode(Opcodes.ISTORE, argsToLocals[i]);
+								storeNode = new VarInsnNode(ISTORE, argsToLocals[i]);
 							}else if(targArgTypes[argsInfo[i]].getSort() == Type.LONG){
-								storeNode = new VarInsnNode(Opcodes.LSTORE, argsToLocals[i]);
+								storeNode = new VarInsnNode(LSTORE, argsToLocals[i]);
 							}else if(targArgTypes[argsInfo[i]].getSort() == Type.FLOAT){
-								storeNode = new VarInsnNode(Opcodes.FSTORE, argsToLocals[i]);
+								storeNode = new VarInsnNode(FSTORE, argsToLocals[i]);
 							}else if(targArgTypes[argsInfo[i]].getSort() == Type.DOUBLE){
-								storeNode = new VarInsnNode(Opcodes.DSTORE, argsToLocals[i]);
+								storeNode = new VarInsnNode(DSTORE, argsToLocals[i]);
 							}else if(targArgTypes[argsInfo[i]].getSort() == Type.OBJECT){
-								storeNode = new VarInsnNode(Opcodes.ASTORE, argsToLocals[i]);
+								storeNode = new VarInsnNode(ASTORE, argsToLocals[i]);
 							}else{
 								throw new UnsupportedOperationException("Unsupported argument data type: " 
 										+ targArgTypes[argsInfo[i]]);
@@ -566,15 +675,15 @@ public class Weaver{
 									|| targArgTypes[argsInfo[i]].getSort() == Type.CHAR
 									|| targArgTypes[argsInfo[i]].getSort() == Type.BYTE
 									|| targArgTypes[argsInfo[i]].getSort() == Type.SHORT) {
-								loadNode = new VarInsnNode(Opcodes.ILOAD, argsToLocals[i]);
+								loadNode = new VarInsnNode(ILOAD, argsToLocals[i]);
 							}else if(targArgTypes[argsInfo[i]].getSort() == Type.LONG){
-								loadNode = new VarInsnNode(Opcodes.LLOAD, argsToLocals[i]);
+								loadNode = new VarInsnNode(LLOAD, argsToLocals[i]);
 							}else if(targArgTypes[argsInfo[i]].getSort() == Type.FLOAT){
-								loadNode = new VarInsnNode(Opcodes.FLOAD, argsToLocals[i]);
+								loadNode = new VarInsnNode(FLOAD, argsToLocals[i]);
 							}else if(targArgTypes[argsInfo[i]].getSort() == Type.DOUBLE){
-								loadNode = new VarInsnNode(Opcodes.DLOAD, argsToLocals[i]);
+								loadNode = new VarInsnNode(DLOAD, argsToLocals[i]);
 							}else if(targArgTypes[argsInfo[i]].getSort() == Type.OBJECT){
-								loadNode = new VarInsnNode(Opcodes.ALOAD, argsToLocals[i]);
+								loadNode = new VarInsnNode(ALOAD, argsToLocals[i]);
 							}else{
 								throw new UnsupportedOperationException("Unsupported argument data type: " 
 										+ targArgTypes[argsInfo[i]]);
@@ -588,9 +697,9 @@ public class Weaver{
 							InsnNode pop;
 							if(Type.getReturnType(desc).getSort() == Type.LONG ||
 									Type.getReturnType(desc).getSort() == Type.DOUBLE){
-								pop = new InsnNode(Opcodes.POP2);
+								pop = new InsnNode(POP2);
 							}else{
-								pop = new InsnNode(Opcodes.POP);
+								pop = new InsnNode(POP);
 							}
 							method.instructions.insert(actionCall, pop);
 						}
@@ -630,7 +739,7 @@ public class Weaver{
 						}
 						
 						// For non-static target methods remove target object.
-						if(mInstr.getOpcode() != Opcodes.INVOKESTATIC) {
+						if(mInstr.getOpcode() != INVOKESTATIC) {
 							disposeValue(current, method);
 						}
 						method.instructions.insert(instr, actionCall);
