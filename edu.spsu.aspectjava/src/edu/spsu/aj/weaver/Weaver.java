@@ -482,9 +482,8 @@ public class Weaver{
 			method.instructions.remove(instr);
 			disposeValue(argValue, method);
 		}else{
-			// TODO: delete test code
-			System.out.println("disposeValue(): not realized yet - " + instr.getOpcode());
-			System.exit(-1);
+			throw new UnsupportedOperationException("disposeValue(): not implemented yet - "
+					+ opcode);
 		}
 	}
 	
