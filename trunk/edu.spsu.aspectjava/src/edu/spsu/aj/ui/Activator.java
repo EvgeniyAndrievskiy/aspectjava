@@ -10,8 +10,8 @@ import org.osgi.framework.BundleContext;
 public class Activator extends AbstractUIPlugin {
 	public static final String IMG_ADD_DEC = "icons/add_dec.png";
 	public static final String IMG_ASPECT = "icons/aspect.png";
-	public static final String IMG_ARROW_DOWN = "icons/down.gif";
-	public static final String IMG_ARROW_UP = "icons/up.gif";
+	public static final String IMG_ARROW_DOWN = "icons/down.png";
+	public static final String IMG_ARROW_UP = "icons/up.png";
 	public static final String IMG_FIND = "icons/find.gif";
 //	public static final String IMG_OPTIONS = "icons/options.gif";
 	public static final String IMG_REFRESH = "icons/refresh.gif";
